@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description" content="Sirius: Contextual Sparsity with Correction for Efficient LLMs">
+  <meta property="og:title" content="Sirius"/>
+  <meta property="og:description" content="Sirius: Contextual Sparsity with Correction for Efficient LLMs"/>
+  <meta property="og:url" content="https://Infini-AI-Lab.github.io/Sirius/"/>
+  <meta property="og:image" content="static/images/sirius_overview.png" />
+  <meta property="og:image:width" content="1200"/>
+  <meta property="og:image:height" content="630"/>
+
+  <meta name="twitter:title" content="Sirius">
+  <meta name="twitter:description" content="Sirius: Contextual Sparsity with Correction for Efficient LLMs">
+  <meta name="twitter:image" content="static/images/sirius_overview.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="keywords" content="Contextual Sparsity, LLM Efficiency, Correction Mechanism">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Sirius: Contextual Sparsity with Correction for Efficient LLMs</title>
+  <link rel="icon" type="image/x-icon" href="static/images/siriuslogo.png">
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
+
+  <link rel="stylesheet" href="static/css/bulma.min.css">
+  <link rel="stylesheet" href="static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="static/css/fontawesome.all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="static/css/index.css">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://documentcloud.adobe.com/view-sdk/main.js"></script>
+  <script defer src="static/js/fontawesome.all.min.js"></script>
+  <script src="static/js/bulma-carousel.min.js"></script>
+  <script src="static/js/bulma-slider.min.js"></script>
+  <script src="static/js/index.js"></script>
+  <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]}});
+  </script>
+  <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script>
+  <!-- <style>
+    @font-face {
+      font-family: 'SiriusFont';
+      src: url('static/Sirius.ttf') format('truetype');
+    }
+  
+    .custom-font {
+      font-family: 'SiriusFont', sans-serif !important;
+      font-size: 3.0rem;
+    }
+  </style> -->
+</head>
+<body>
+
+  <section class="hero">
+    <div class="hero-body">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column has-text-centered">
+            <svg class="sirius-symbol" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="50" height="50">
+                <circle cx="50" cy="60" r="30" fill="white" stroke="black" stroke-width="2"/>
+                <circle cx="80" cy="20" r="15" fill="black" stroke="white" stroke-width="1"/>
+                <line x1="50" y1="60" x2="80" y2="20" stroke="gray" stroke-width="1" opacity="0.5"/>
+            </svg>
+            <h1 class="title is-2 publication-title" style="display: inline;">Sirius: Contextual Sparsity with Correction for Efficient LLMs</h1>
+            <br><br>
+            <div class="is-size-5 publication-authors">
+              <span class="author-block">
+                <a href="" target="_blank">Yang Zhou</a><sup>1</sup>,</span>
+              <span class="author-block">
+                <a href="" target="_blank">Zhuoming Chen</a><sup>1</sup>,</span>
+              <span class="author-block">
+                <a href="" target="_blank">Zhaozhuo Xu (affiliation not correct)</a><sup>1</sup>,</span> <br>
+              <span class="author-block"> 
+                <a href="" target="_blank">Victoria Lin</a><sup>2</sup>,</span>
+              <span class="author-block">
+                <a href="" target="_blank">Beidi Chen</a><sup>1,2</sup>
+              </span>
+            </div>
+
+            <div class="is-size-5 publication-authors">
+              <span class="author-block"><sup>1</sup>Carnegie Mellon University,</span>
+              <span class="author-block"><sup>2</sup>Meta AI (FAIR)</span>
+            </div>
+
+            <!-- Links -->
+            <div class="column has-text-centered">
+              <div class="publication-links">
+                <span class="link-block">
+                  <a href="" target="_blank"
+                     class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon">
+                      <i class="ai ai-arxiv"></i>
+                    </span>
+                    <span>arXiv</span>
+                  </a>
+                </span>
+                <span class="link-block">
+                  <a href="https://github.com/Infini-AI-Lab/Sirius" target="_blank"
+                     class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon">
+                      <i class="fab fa-github"></i>
+                    </span>
+                    <span>Code</span>
+                  </a>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section hero is-light">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered has-text-centered">
+        <div class="column is-four-fifths">
+          <h2 class="title is-3" style="text-align: center;"><img src="static/images/twomooone.png" style="height: 43px; display: inline; vertical-align:text-top;"/>&nbsp; Introduction</h2>
+          <div class="content has-text-justified">
+            <p>
+                With the blossom of large language models (LLM), inference efficiency becomes increasingly important. Various approximation methods are proposed to reduce the cost at inference time. 
+                Contextual Sparsity (CS) is a type of dynamic sparsity method that finds optimal sparsity patterns for different input. 
+                CS is appealing for its training-free nature and its ability to reach a higher compression ratio seemingly without significant performance degradation. 
+                <span style="font-weight: bold; color: dodgerblue">However, after a comprehensive evaluation of contextual sparsity methods on various complex generation tasks, we find that although CS succeeds in prompt-understanding tasks, CS significantly degrades the model performance for reasoning, deduction, and knowledge-based tasks.</span> Despite the gap in end-to-end accuracy, we observed that sparse models and original models often <span style="font-weight: bold; color: dodgerblue">share general problem-solving logic</span> and <span style="font-weight: bold; color: dodgerblue">require only a few tokens</span> corrections to recover the original model performance.
+            </p>
+            <p>
+                This paper introduces Sirius[1], an efficient correction mechanism, which significantly boosts CS models on reasoning tasks while maintaining its efficiency gain. Sirius is evaluated on 6 models with 8 difficult generation tasks in reasoning, deduction, and coding and <span style="font-weight: bold; color: dodgerblue">shows consistent effectiveness and efficiency</span>. Also, we carefully develop a system implementation for Sirius and show that Sirius delivers theoretical latency reduction with roughly 20% reduction in latency for 8B model on-chip and 35% reduction in latency for 70B model offloading.
+            </p>
+            <p class="footnote">
+                <span class="asteriss">[1] We draw inspiration from the astronomical concept, in which Sirius refers to a two-body star system, where one is the brightest star ever detected, while the other is a dim star.</span> 
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section hero is-light">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered has-text-centered">
+        <div class="column is-four-fifths">
+          <h3 class="title is-3" style="text-align: center;"><img src="static/images/lim.png" style="height: 50px; display: inline; vertical-align: middle;"/>&nbsp; Observation: Contextual Sparsity Limitation</h3>
+          <div class="content has-text-justified">
+            <p>
+              Previous works focus on the existence of Contextual Sparsity in LLM and mainly evaluate CS models on classification or on simple text summarization tasks. In this paper, <span style="font-weight: bold; color: dodgerblue">we evaluate CS models comprehensively on various complex generation tasks</span>. First, we classify the CS models as follows: 
+            </p>
+            <ol>
+              <li><span style="font-weight: bold">Coarse-grained Sparsity</span> (CSparse) Methods ([1]) - that within the same input prompt, the sparsity
+                pattern is fixed for all tokens generated.</li>
+              <li><span style="font-weight: bold">Fine-grained Sparsity</span> (FSparse) Methods ([2]) - that exploits the per-token sparsity to save resources.</li>
+            </ol>
+            <div class="figure">
+                <img src="static/images/probwebsite.png" alt="Illustration of CS Limitations" height="400" />
+            </div>
+            <p>
+                CS models are evaluated at their default sparsity (50% neuron sparsity). Across the evaluation, we present the following takeaways: 
+            </p> 
+            <ol>
+                <li><span style="font-weight: bold; color: dodgerblue">CS models work well on prompt understanding tasks</span>, e.g. text summarization (CNN/DailyMail) and conversation question answering (CoQA). </li>
+                <li><span style="font-weight: bold; color: dodgerblue">CS models significantly ill-perform on generation tasks that require complex reasoning</span> (GSM8K) or knowledge-based tasks (MMLU-FLAN-COT). </li>
+            </ol>
+            <p>
+                We show the results in the below table. Further, we contrast in above Figure (a), where if sparsity varies, <span style="font-weight: bold; color: coral">the performance on CNN/DailyMail</span> (coral) is robust, while <span style="font-weight: bold; color: green">the performance on GSM8K</span> (green) collapses at global sparsity of 50%. 
+            </p>
+                <table border="1" cellspacing="0" cellpadding="5" style="font-size: 12px;"> 
+                    <thead>
+                      <tr>
+                        <th rowspan="3">Experiment Settings</th> 
+                        <th colspan="3" style="background-color: lightgreen">Where CS Succeeds</th>
+                        <th colspan="3" style="background-color: yellow">Where CS Fails</th>
+                      </tr>
+                      <tr>
+                        <th>CNN/DailyMail</th>
+                        <th>CoQA</th> 
+                        <th>TruthfulQA</th>
+                        <th>GSM8K</th> 
+                        <th>HumanEval</th>
+                        <th>MMLU*</th>
+                      </tr>
+                      <tr>
+                        <td>Unitxt Rouge</td> 
+                        <td>EM/F1</td>
+                        <td>Rouge-1/2 ACC</td> 
+                        <td>ACC (strict/flexible)</td> 
+                        <td>Pass@1 (GD)</td> 
+                        <td>Accuracy</td> 
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Llama-3-8B-Instruct</td>
+                        <td>0.1237</td>
+                        <td>0.6153/0.7825</td>
+                        <td>0.4945/0.3647</td>
+                        <td>0.7551/0.7544</td>
+                        <td>0.560</td>
+                        <td>0.6231</td>
+                      </tr>
+                      <tr>
+                        <td>Llama-3-8B-Instruct-CSparse</td>
+                        <td>0.1144</td>
+                        <td>0.6633/0.7977</td>
+                        <td>0.4725/0.3403</td>
+                        <td style="font-weight: bold; color: dodgerblue">0.3859/0.3874</td>
+                        <td style="font-weight: bold; color: dodgerblue">0.207</td>
+                        <td style="font-weight: bold; color: dodgerblue">0.5558</td>
+                      </tr>
+                      <tr>
+                        <td>Llama-3-8B-Instruct-FSparse</td>
+                        <td>0.1166</td>
+                        <td>0.6625/0.7984</td>
+                        <td>0.5043/0.3305</td>
+                        <td style="font-weight: bold; color: dodgerblue">0.5868/0.5891</td>
+                        <td style="font-weight: bold; color: dodgerblue">0.457</td>
+                        <td style="font-weight: bold; color: dodgerblue">0.5304</td>
+                      </tr>
+                      <tr>
+                        <td>Llama-2-7B-Chat</td>
+                        <td>0.1489</td>
+                        <td>0.5982/0.7580</td>
+                        <td>0.4480/0.3831</td>
+                        <td>0.2396/0.2462</td>
+                        <td>0.140</td>
+                        <td>0.492</td>
+                      </tr>
+                      <tr>
+                        <td>Llama-2-7B-Chat-FSparse</td>
+                        <td>0.1448</td>
+                        <td>0.6117/0.7639</td>
+                        <td>0.4529/0.3843</td>
+                        <td style="font-weight: bold; color: dodgerblue">0.1334/0.1380</td>
+                        <td style="font-weight: bold; color: dodgerblue">0.067</td>
+                        <td style="font-weight: bold; color: dodgerblue">0.4637</td>
+                      </tr>
+                      <tr>
+                        <td>Llama-2-7B-Chat-FSparse</td>
+                        <td>0.1521</td>
+                        <td>0.5898/0.7540</td>
+                        <td>0.4565/0.3660</td>
+                        <td style="font-weight: bold; color: dodgerblue">0.1979/0.2017</td>
+                        <td style="font-weight: bold; color: dodgerblue">0.134</td>
+                        <td style="font-weight: bold; color: dodgerblue">0.4768</td>
+                      </tr>
+                    </tbody>
+                  </table> 
+                  
+                  <p>* MMLU is a classification task, not generation tasks. We use MMLU-FLAN-COT.</p>
+                  <p>
+                    The drastic loss in complex reasoning tasks might be because the neuron activation intensity is more complex and more difficult to be captured by CS with fixed sparsity level, as illustrated in the Figure (b). 
+                    Furthermore, we study CS on 70B model in Figure (c) and show that at global sparsity lower than 50%, <span style="font-weight: bold; color: dodgerblue">the performance on GSM8K-COT of the Llama-3-70B-Instruct with contextual sparsity is even worse than the full Llama-3-8B-Instruct, while having 4X the parameter size.</span> This observation shows that CS is not usable for 70B models for complex reasoning tasks. 
+                  </p>
+                  <p class="footnote">
+                    <span class="asteriss">[1] Dong, H., Chen, B., and Chi, Y. (2024). Prompt-prompted mixture of experts for efficient llm generation.</span> 
+                  </p> 
+                  <p class="footnote">
+                    <span class="asterisk">[2] Lee, J.-Y., Lee, D., Zhang, G., Tiwari, M., and Mirhoseini, A. (2024). Cats: Contextually-aware thresholding for
+                        sparsity in large language models.</span> 
+                  </p> 
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section hero is-light">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column is-four-fifths">
+          <h2 class="title is-3" style="text-align: center;"><img src="static/images/rockets.png" style="height: 50px; display: inline; vertical-align: middle;"/>&nbsp; Sirius Motivation </h2>
+          <div class="content has-text-justified">
+            <div class="figure">
+                <img src="static/images/siriusmoti.png" alt="Sirius Results" /> 
+            </div>
+            <p> 
+              We study in detail the cases where CS models fail. The errors are either miscalculation, wrong reasoning path, and insensible statements (refer to the paper for more examples and analysis). The mistakes always happen in the middle of the argument but propagate to the end-results. We show some examples in Figure (c). 
+            </p> 
+            <p> 
+              Can the generation be corrected by just correcting these minor mistakes in the middle? We run both the full model and CS model and contrast token-by-token for Llama-3-8B-Instruct and Llama-2-7B-Chat, the results are shown in Figure (a) and (b). 
+              We found that <span style="font-weight: bold; color: dodgerblue">the percentage of tokens needed to corrected is minor, with 10% tokens be modified enough to recover the full model performance</span>. This motivates us to develop an efficient correction mechanism to boosts the CS models on complex generation tasks with reasoning. 
+            </p> 
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section hero is-light">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column is-four-fifths">
+          <h2 class="title is-3" style="text-align: center;"><img src="static/images/simpleiss.png" style="height: 50px; display: inline; vertical-align: middle;"/>&nbsp; Sirius and Results </h2> 
+          <div class="content has-text-justified">
+            <h4>Method Description</h4> 
+            <div class="figure">
+                <img src="static/images/methodsillustration.png" alt="Sirius Results" /> 
+            </div>
+            <p> 
+              We propose Sirius, an efficient correction mechanism for CS models. For full description of Sirius design choices, please refer to the paper. <span style="font-weight: bold; color: dodgerblue">Sirius is a period-based approach, where the full model is called much infrequently (usually 16 tokens).</span> 
+              During correction, the full model directly rewrites KV Cache, interleave new tokens, and roll back unlikely tokens. Though Sirius is seemingly a speculative decoding look-alike, we conduct rigorously studies to show that native Speculative Decoding causes significant 
+              efficiency limitation in the sparse correction scenario, because of 1) sparse model too large; 2) Correction criteria too strict. Moreover, a hardware-efficient tree is built to boost the efficiency of Sirius. 
+            </p> 
+            <h4>Correction Effectiveness</h4> 
+            <p>
+            We show Sirius effectiveness and efficiency in the following table. We select GSM8K for Arithmetic Reasoning, CSQA for Commonsense Reasoning, and HumanEval for code generation. Under the "Sirius Perf." column, A(B) is shown. A denotes the accuracy after Sirius correction in the dataset evaluated, while (B) represents the optimal treewidth selected under the current model dataset settings. Under the column of "AAL", X/Y is shown, where X is the AAL, while Y is the period. 
+            "Effective Density" refers to the Average Density of the overall system. Besides, we evaluate 6 different mainstream LLMs (Llama-3-8B, Llama-2-7B, Llama-2-13B with their instruction-finetuned counterparts) on 8 different tasks. Specifically, we have GSM8K, AQuA-RAT-COT for Arithmetic Reasoning, CSQA, StrategyQA, Sports, and Dates for Commonsense Reasoning, HumanEval and MBPP+ for coding. <span style="font-weight: bold; color: dodgerblue">Sirius is effective and efficient across all these different settings.</span> For details on the evaluation, please refer to the full paper. 
+            </p> 
+            <table style="font-size: 12px">
+                <caption>Llama-3-8B-Instruct with Sirius Effectiveness on Different Complex Tasks</caption>
+                <thead>
+                  <tr style="background-color: #EFEFEF;">
+                    <th colspan="7">GSM8K</th>
+                  </tr>
+                  <tr>
+                    <th>Model</th>
+                    <th>Full Perf.</th>
+                    <th>CSparse Perf.</th>
+                    <th style="background-color: lightyellow">CSparse Density</th>
+                    <th>Sirius Perf.</th>
+                    <th>AAL</th>
+                    <th style="background-color: lightgreen">Effective Density</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Llama-3-8B-Instruct</td>
+                    <td>0.7536</td>
+                    <td>0.3844</td>
+                    <td style="background-color: lightyellow">0.65</td>
+                    <td>0.7051 (8)</td>
+                    <td>15.22/16</td>
+                    <td style="background-color: lightgreen">0.706</td>
+                  </tr>
+                  <tr>
+                    <td>Llama-3-8B</td>
+                    <td>0.4966</td>
+                    <td>0.2085</td>
+                    <td style="background-color: lightyellow">0.65</td>
+                    <td>0.4177 (8)</td>
+                    <td>15.29/16</td>
+                    <td style="background-color: lightgreen">0.703</td>
+                  </tr>
+                  <tr>
+                    <th>Model</th>
+                    <th>Full Perf.</th>
+                    <th>FSparse Perf.</th>
+                    <th style="background-color: lightyellow">FSparse Density</th>
+                    <th>Sirius Perf.</th>
+                    <th>AAL</th>
+                    <th style="background-color: lightgreen">Effective Density</th>
+                  </tr>
+                  <tr>
+                    <td>Llama-3-8B-Instruct</td>
+                    <td>0.7536</td>
+                    <td>0.5868</td>
+                    <td style="background-color: lightyellow">0.76</td>
+                    <td>0.7278 (4)</td>
+                    <td>15.37/16</td>
+                    <td style="background-color: lightgreen">0.807</td>
+                  </tr>
+                  <tr>
+                    <td>Llama-3-8B</td>
+                    <td>0.4966</td>
+                    <td>0.3199</td>
+                    <td style="background-color: lightyellow">0.76</td>
+                    <td>0.4579 (2)</td>
+                    <td>15.03/16</td>
+                    <td style="background-color: lightgreen">0.825</td>
+                  </tr>
+                  <tr style="background-color: #EFEFEF;">
+                    <th colspan="7">CSQA</th>
+                  </tr>
+                  <tr>
+                    <th>Model</th>
+                    <th>Full Perf.</th>
+                    <th>CSparse Perf.</th>
+                    <th style="background-color: lightyellow">CSparse Density</th>
+                    <th>Sirius Perf.</th>
+                    <th>AAL</th>
+                    <th style="background-color: lightgreen">Effective Density</th>
+                  </tr>
+                  <tr>
+                    <td>Llama-3-8B-Instruct</td>
+                    <td>0.7073</td>
+                    <td>0.6470</td>
+                    <td style="background-color: lightyellow">0.58</td>
+                    <td>0.7076 (8)</td>
+                    <td>14.76/16</td>
+                    <td style="background-color: lightgreen">0.657</td>
+                  </tr>
+                  <tr>
+                    <td>Llama-3-8B</td>
+                    <td>0.6437</td>
+                    <td>0.5585</td>
+                    <td style="background-color: lightyellow">0.58</td>
+                    <td>0.6429 (8)</td>
+                    <td>15.43/16</td>
+                    <td style="background-color: lightgreen">0.628</td>
+                  </tr>
+                  <tr>
+                    <th>Model</th>
+                    <th>Full Perf.</th>
+                    <th>FSparse Perf.</th>
+                    <th style="background-color: lightyellow">FSparse Density</th>
+                    <th>Sirius Perf.</th>
+                    <th>AAL</th>
+                    <th style="background-color: lightgreen">Effective Density</th>
+                  </tr>
+                  <tr>
+                    <td>Llama-3-8B-Instruct</td>
+                    <td>0.7073</td>
+                    <td>0.6158</td>
+                    <td style="background-color: lightyellow">0.72</td>
+                    <td>0.7043 (8)</td>
+                    <td>15.66/16</td>
+                    <td style="background-color: lightgreen">0.753</td>
+                  </tr>
+                  <tr>
+                    <td>Llama-3-8B</td>
+                    <td>0.6437</td>
+                    <td>0.533</td>
+                    <td style="background-color: lightyellow">0.72</td>
+                    <td>0.6388 (1)</td>
+                    <td>15.00/16</td>
+                    <td style="background-color: lightgreen">0.786</td>
+                  </tr>
+                  <tr style="background-color: #EFEFEF;">
+                    <th colspan="7">HumanEval</th>
+                  </tr>
+                  <tr>
+                    <th>Model</th>
+                    <th>Full Perf.</th>
+                    <th>CSparse Perf.</th>
+                    <th style="background-color: lightyellow">CSparse Density</th>
+                    <th>Sirius Perf.</th>
+                    <th>AAL</th>
+                    <th style="background-color: lightgreen">Effective Density</th>
+                  </tr>
+                  <tr>
+                    <td>Llama-3-8B-Instruct</td>
+                    <td>0.561</td>
+                    <td>0.207</td>
+                    <td style="background-color: lightyellow">0.65</td>
+                    <td>0.524 (8)</td>
+                    <td>14.67/16</td>
+                    <td style="background-color: lightgreen">0.733</td>
+                  </tr>
+                  <tr>
+                    <td>Llama-3-8B</td>
+                    <td>0.262</td>
+                    <td>0.067</td>
+                    <td style="background-color: lightyellow">0.65</td>
+                    <td>0.243 (8)</td>
+                    <td>15.1074/16</td>
+                    <td style="background-color: lightgreen">0.691</td>
+                  </tr>
+                  <tr>
+                    <th>Model</th>
+                    <th>Full Perf.</th>
+                    <th>CSparse Perf.</th>
+                    <th style="background-color: lightyellow">CSparse Density</th>
+                    <th>Sirius Perf.</th>
+                    <th>AAL</th>
+                    <th style="background-color: lightgreen">Effective Density</th>
+                  </tr>
+                  <tr>
+                    <td>Llama-3-8B-Instruct</td>
+                    <td>0.561</td>
+                    <td>0.457</td>
+                    <td style="background-color: lightyellow">0.76</td>
+                    <td>0.616 (6)</td>
+                    <td>15.42/16</td>
+                    <td style="background-color: lightgreen">0.804</td>
+                  </tr>
+                  <tr>
+                    <td>Llama-3-8B</td>
+                    <td>0.262</td>
+                    <td>0.189</td>
+                    <td style="background-color: lightyellow">0.76</td>
+                    <td>0.293 (6)</td>
+                    <td>15.5446/16</td>
+                    <td style="background-color: lightgreen">0.797</td>
+                  </tr>
+                </tbody>
+              </table> 
+              <h4>Wallclock Speedup</h4>
+              <div style="width: 100%; overflow: hidden; box-sizing: border-box;"> <!-- Ensures that the container fits its contents even with floating elements -->
+                <div style="float: left; width: 50%; padding: 10px;">
+                    <p>
+                        We show that Sirius deliver the theoretical latency in both on-chip and offloading settings. The test dataset is GSM8K-COT. 
+                        For the on-chip setting, we evaluate Sirius on Llama-3-8B-Instruct on A40, L40, A100, and H100. Sirius mostly achieves 20% reduction in wallclock latency. 
+                        Also, for the 70B model, offloading partial weights on the CPU and only loading these weights into GPU memory when needed is one of the only viable ways normal practitioners can do. 
+                        For PCIE bandwidth of 25GB/s, we show that Sirius can achieve 35% reduction in wallclock latency for Llama-3-70B-Instruct. 
+                    </p>
+                </div>
+                <div style="float: right; width: 50%; font-size: 12px">
+                    <table style="width: 100%; border-collapse: collapse; border: 1px solid black;">
+                        <caption style="font-weight: bold; margin-bottom: 10px;">Llama-3-70B-Instruct with Offloading</caption>
+                        <thead>
+                            <tr style="background-color: #f2f2f2;">
+                                <th>Settings</th>
+                                <th>Sparse</th>
+                                <th style="background-color: lightgreen">Sirius</th>
+                                <th>Full</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Performance</td>
+                                <td>0.7407</td>
+                                <td style="background-color: lightgreen">0.8719</td>
+                                <td>0.9014</td>
+                            </tr>
+                            <tr>
+                                <td>Latency (s)</td>
+                                <td>3.57 s</td>
+                                <td style="background-color: lightgreen">3.68 s</td>
+                                <td>5.72 s</td>
+                            </tr>
+                            <tr>
+                                <td>Ratio to Full</td>
+                                <td>0.6241</td>
+                                <td style="background-color: lightgreen">0.6434</td>
+                                <td>1.0</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+              <table border="1" style="border-collapse: collapse; width: 100%; font-size: 12px">
+                <caption>Llama-3-8B-Instruct On-Chip Wallclock Latency Speedup</caption>
+                <thead>
+                    <tr style="background-color: #EFEFEF">
+                        <th>Settings</th>
+                        <th>Performance</th>
+                        <th>A40</th>
+                        <th>Speedup Ratio</th>
+                        <th>L40</th>
+                        <th>Speedup Ratio</th>
+                        <th>Performance</th>
+                        <th>A100</th>
+                        <th>Speedup Ratio</th>
+                        <th>H100</th>
+                        <th>Speedup Ratio</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Coarse-grained Sparsity</td>
+                        <td>0.3601</td>
+                        <td>20.7</td>
+                        <td>0.85</td>
+                        <td>15.6</td>
+                        <td>0.67</td>
+                        <td>0.3601</td>
+                        <td>9.6</td>
+                        <td>0.72</td>
+                        <td>6.6</td>
+                        <td>0.76</td>
+                    </tr>
+                    <tr style="background-color: lightgreen">
+                        <td>Sirius</td>
+                        <td>0.7127</td>
+                        <td>24.1</td>
+                        <td>0.77</td>
+                        <td>18.2</td>
+                        <td>0.78</td>
+                        <td>0.7089</td>
+                        <td>11.1</td>
+                        <td>0.83</td>
+                        <td>7.7</td>
+                        <td>0.88</td>
+                    </tr>
+                    <tr>
+                        <td>Full</td>
+                        <td>0.7612</td>
+                        <td>30.9</td>
+                        <td>1.0</td>
+                        <td>23.2</td>
+                        <td>1.0</td>
+                        <td>0.7612</td>
+                        <td>13.3</td>
+                        <td>1.0</td>
+                        <td>8.6</td>
+                        <td>1.0</td>
+                    </tr>
+                </tbody>
+            </table>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section hero is-light">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered has-text-centered">
+        <div class="column is-four-fifths">
+          <h2 class="title is-3"><img src="static/images/cosmonautllama.png" style="height: 50px; display: inline; vertical-align: middle;"/>&nbsp; Conclusion</h2> 
+          <div class="content has-text-justified">
+            <p>
+            We observe that contextual sparse methods significantly degrade for reasoning and deduction tasks. However, we find that the degradation from contextual sparse models can theoretically be recovered
+            with 10% token corrected by original model. Following the observation, we develop Sirius. Sirius provides an effective solution to the performance degradation issue of contextual sparsity methods in complex reasoning tasks. By introducing an efficient correction mechanism, Sirius significantly boosts the performance of CS models while maintaining their efficiency gains. This work opens up new possibilities for deploying efficient LLMs in resource-constrained environments without compromising on task performance.
+            </p>
+          </div>
+        </div>
+      </div>
+      <img
+        src="static/images/siriuslogo.png" 
+        alt="<i>Sirius</i>"
+        width="200"
+        height="200" 
+        style="display: block;margin: auto"/>
+    </div>
+  </section>
+
+  <section class="section" id="BibTeX">
+    <div class="container is-max-desktop content">
+      <h2 class="title">BibTeX</h2>
+      <pre><code>@article{hippocampus2024sirius,
+  title={Sirius: Contextual Sparsity with Correction for Efficient LLMs},
+  author={Hippocampus, David S. and Zhou, Yang and Chen, Zhuoming and Xu, Zhaozhuo and Lin, Victoria and Chen, Beidi},
+  journal={arXiv preprint arXiv:2404.11912},
+  year={2024}
+}</code></pre>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="columns is-centered">
+        <div class="column is-8">
+          <div class="content">
+            <p>
+              This page was built using the <a href="https://github.com/eliahuhorwitz/Academic-project-page-template" target="_blank">Academic Project Page Template</a> which was adopted from the <a href="https://nerfies.github.io" target="_blank">Nerfies</a> project page.
+              You are free to borrow the of this website, we just ask that you link back to this page in the footer. <br> This website is licensed under a <a rel="license"  href="http://creativecommons.org/licenses/by-sa/4.0/" target="_blank">Creative
+              Commons Attribution-ShareAlike 4.0 International License</a>. The icons are created by GPT4.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
