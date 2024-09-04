@@ -1,0 +1,40 @@
+Q: John heard a language that he could not understand. He thought that the door was shut, but he eventually realized that there was no door, and that the light source that was blinding his eyes was very familiar.  He was on his back looking at what?
+Options: (a) sky (b) lamp (c) hallway (d) dard (e) closed room
+A: The answer must be a place where there are people speaking, no door, and also there is a light source that is intensively strong. lamp is a light source, but not intensively strong, hallway is a place with doors, and closed room also has some doors. Sky is the only place that has no door and a very strong light source, sun, during the day. Also, John can be on his back looking at the sky and hearing people speaking. So the answer is sky (a).
+
+Q: The sun was out and the temperature changing rapidly, it was really beginning to what?
+Options: (a) drop to zero (b) increase (c) cool down (d) dropping quickly (e) heat up
+A: The answer must be a situation when the sun is out and temperature starts to shift because of the sun rise. The sun rise makes the temperature to go up, and temperature does not drop to zero, does not cool down, and does not drop quickly. Increase is ok but not as clear as heat up. So the answer is heat up (e).
+
+Q: When do girls eat ice cream on the couch?
+Options: (a) wash hands (b) were hungry (c) depressed (d) athlete's foot (e) cool down
+A: The answer must be a situation when eating ice cream and sitting on the couch help girls feel better. Eating ice cream and sitting on the couch are usually activies that make girls feel comfortable and pleasing. Washing hand is not related to eating ice cream. Being hungry is relevant, but ice cream is usually not the first thing to eat when hungry. Athlete's foot is not relevant to eating ice cream. When girls are cooled down, they won't do things that make them feel better. Feeling depressed is the most relevant among all and a strong reason for them to find ways to feel better by sitting on the couch and eating ice cream. So the answer is depressed (c).
+
+Q: Dan is driving a car, though he's stopped at a light right now. What else can we assume that he's doing?
+Options: (a) listening to the radio (b) car crash (c) moving (d) get sleepy (e) going someplace
+A: The answer must be a situation that doesn't infer more than the question has given. Dan is driving a car and stopped at a light, which is a common situation when driving. Listening to the radio is a common activity when driving but cannot be infered from Dan's actions. Car crash cannot be infered from Dan's actions. Dan stopped at a light, so he is not moving. Getting sleepy cannot be infered from the question. Going someplace is always right when driving, which is what Dan is doing. So the answer is going someplace (e).
+
+Q: Where could you find a monkey in the wild?
+Options: (a) friend's house (b) research laboratory (c) french government (d) beach (e) madagascar
+A: The answer must be a place of lots of monkeys in the wild to be found. A friend's house might have pets but not wild monkeys. A research laboratory might have monkeys but not in the wild. French government is irrelevant to finding wild monkeys, and wild monkeys usually cannot be found near the beaches. Madgascar is a place known for wild lives, including monkeys. So the answer is madagascar (e).
+
+Q: who uses a contraceptive device?
+Options: (a) pharmacy (b) bedroom (c) person (d) men (e) drug store
+A: The answer must be refering by whom the contraceptive device is used. A pharmacy is a place where contraceptive devices are sold, but cannot be refered by who. Bedroom is also a place and cannot be refered by who, and drug store is again a place and cannot be refered to by who. Men aren't the only ones who use contraceptive devices, and person is the most general term that can be refered to by who use contraceptive devices. So the answer is person (c).
+
+Q: Samantha decided to join the game, but there wasn't space. She had to stay on the waitlist until someone else did what?
+Options: (a) opt out (b) separate (c) opt out (d) leave (e) split apart
+A: The answer must be a situation when the number of players currently playing the game reaches the limit of the game, and someone has to exit the game for people from the waitlist to enter. Opt out is correct but repeated. Separate and split are not relevant to the players playing the game. Leave is the most relevant in the situation. So the answer is leave (d).
+
+Q: The storm was surprising, where didn't it show up for meteorologists?
+Options: (a) train (b) tropical seas (c) weather report (d) america (e) caribbean
+A: The answer must be a place where because it didn't show up, meteorologists were surprised. A train is irrelevant to the storm and meteorologists. Tropical seas are places where storms are common, so meteorologists wouldn't be surprised. America and caribbean are general places where storms can show up or not, and meteorologists wouldn't be surprised. If the storm didn't show up in the weather report, meteorologists would be surprised when the storm came. So the answer is weather report (c).
+
+Q: what color are rose flowers typically?
+Options: (a) vase (b) pink (c) red (d) blue (e) fragrant
+A: The answer must be a color that rose flowers typically have. A vase is not a color. Pink isn't the most typical color roses have. Blue is not a typical color roses have. Fragrant is not for describing the color of rose. Red is the most typical color that rose flowers have. So the answer is red (c).
+
+Q: You will find many swamps in the in the southern U.S. along what geographic feature?
+Options: (a) river delta (b) michigan (c) louisiana (d) wetlands (e) alligators
+A: The answer must to a geographic feature that is common in the southern U.S. and frequently appears with swamps. Michigan and Louisiana are the states in the U.S. not geographic features. Wetlands refer to the ecosystem of swamps, but not a geographic feature. Alligators live in swamps but not geographic features. River delta is a geographic feature that commonly appears with swamps. So the answer is river delta (a).
+

@@ -1,0 +1,8 @@
+Q: John heard a language that he could not understand. He thought that the door was shut, but he eventually realized that there was no door, and that the light source that was blinding his eyes was very familiar.  He was on his back looking at what?
+Options: (a) sky (b) lamp (c) hallway (d) dard (e) closed room
+A: The answer must be a place where there are people speaking, no door, and also there is a light source that is intensively strong. lamp is a light source, but not intensively strong, hallway is a place with doors, and closed room also has some doors. Sky is the only place that has no door and a very strong light source, sun, during the day. Also, John can be on his back looking at the sky and hearing people speaking. So the answer is sky (a).
+
+Q: The sun was out and the temperature changing rapidly, it was really beginning to what?
+Options: (a) drop to zero (b) increase (c) cool down (d) dropping quickly (e) heat up
+A: The answer must be a situation when the sun is out and temperature starts to shift because of the sun rise. The sun rise makes the temperature to go up, and temperature does not drop to zero, does not cool down, and does not drop quickly. Increase is ok but not as clear as heat up. So the answer is heat up (e).
+

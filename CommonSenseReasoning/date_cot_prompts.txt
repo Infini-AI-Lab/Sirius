@@ -1,0 +1,30 @@
+Q: In the US, Thanksgiving is on the fourth Thursday of November. Today is the US Thanksgiving of 2001. What is the date today in MM/DD/YYYY?
+A: The first day of November 2001 or 11/01/2001 is a Thursday, so the first Thursday is on 11/01/2001. The second is on 11/08/2001. The third is on 11/15/2001. So the fourth is on 11/22/2001. So the answer is 11/22/2001.
+
+Q: Jane scheduled 3 apointments with 5 poeple for tomorrow (Tue, 7/9/1972). What is the date one year ago from today in MM/DD/YYYY?
+A: If tomorrow is 7/9/1972, then today is 7/8/1972, and one year ago from today is 7/8/1971. So the answer is 7/8/1971.
+
+Q: Yesterday, Jan 21, 2011, Jane ate 2 pizzas and 5 wings. What is the date one week from today in MM/DD/YYYY?
+A: If yesterday is 01/21/2011, then today is 01/22/2011, and one week from today is 7 days in the future of today, which is 01/29/2011. So the answer is 01/29/2011.
+
+Q: Today is the second day of the third month of 1966. What is the date one week ago from today in MM/DD/YYYY?
+A: If today is in the third month of 1966, then today is in March 1966. Also, today is the second day of March, so today is 03/02/1966. One week ago from today is 7 days in the past of today, which is the 5th last day of February 1966. Since there are 28 days in February 1996, the 5th last day of February 1966 is 02/23/1966. So the answer is 02/23/1966.
+
+Q: Today, 8/3/1997, is a day that we will never forget. What is the date one week from today in MM/DD/YYYY?
+A: If today is 8/3/1997, then one week from today is 7 days in the future of today, which is 8/10/1997. So the answer is 8/10/1997.
+
+Q: This is the last day of 1899. What is the date one week ago from today in MM/DD/YYYY?
+A: If today is the last day of 1899, then today is 12/31/1899. One week ago from today is 7 days in the past of today, which is 12/24/1899. So the answer is 12/24/1899.
+
+Q: Today is the last day of the first quarter of 2008. What is the date one week from today in MM/DD/YYYY?
+A: One quarter is 3 months, so the first quarter is January, February, and March. Then, the last day of the first quarter of 2008 is the last day of March, which is 03/31/2008. One week from today is 7 days in the future of today, which is the 7th day of April 2008 or 04/07/2008. So the answer is 04/07/2008.
+
+Q: Today is Christmas Eve of 1937. What is the date yesterday in MM/DD/YYYY?
+A: If today is Chrstmas Eve of 1937, then today is 12/24/1937. Yesterday is 1 day in the past of today, which is 12/23/1937. So the answer is 12/23/1937.
+
+Q: Jane is celebrating the last day of Jan 2012. What is the date one week from today in MM/DD/YYYY?
+A: If today is the last day of Jan 2012, then today is 01/31/2012. One week from today is 7 day in the future of today, which is the 7th day of February 2012, or 02/07/2012. So the answer is 02/07/2012.
+
+Q: The day before yesterday was 11/23/1933. What is the date tomorrow in MM/DD/YYYY?
+A: If the day before yesterday was 11/23/1933, then yesterday is 11/24/1933. Today is 11/25/1933. Tomorrow is 1 day in the future of today, which is 11/26/1933. So the answer is 11/26/1933.
+

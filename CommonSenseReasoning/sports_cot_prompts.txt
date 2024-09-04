@@ -1,0 +1,30 @@
+Q: Determine whether the following statement or statements are plausible or implausible: Statement: Marouane Fellaini scored a freekick Plausible/implausible? 
+A: Marouane Fellaini is a Belgian professional soccer player, and freekicks are a common way to score goals in soccer. So the answer is plausible. 
+
+Q: Determine whether the following statement or statements are plausible or implausible: Statement: Javi Martinez comitted a three second violation Plausible/implausible? 
+A: Javi Martinez is a Spanish professional soccer player, and three second violations are a common rule in basketball. So the answer is implausible. 
+
+Q: Determine whether the following statement or statements are plausible or implausible: Statement: Gerard Pique watched the pitch go by in the National League Championship Series Plausible/implausible? 
+A: Gerard Pique is a Spanish professional soccer player, and the National League Championship Series is a baseball event. So the answer is implausible. 
+
+Q: Determine whether the following statement or statements are plausible or implausible: Statement: Julio Jones was called for the goal tend Plausible/implausible? 
+A: Julio Jones is an American professional football player, and goal tend is a common rule in basketball. So the answer is implausible. 
+
+Q: Determine whether the following statement or statements are plausible or implausible: Statement: Lionel Messi scored a touchdown Plausible/implausible? 
+A: Lionel Messi is an Argentine professional soccer player, and touchdowns are a common way to score points in American football. So the answer is implausible. 
+
+Q: Determine whether the following statement or statements are plausible or implausible: Statement: Cooper Kupp scored in the third period in the Stanley Cup Plausible/implausible? 
+A: Cooper Kupp is an American professional football player, and the Stanley Cup is a ice hockey event. So the answer is implausible. 
+
+Q: Determine whether the following statement or statements are plausible or implausible: Statement: Pierre-Luc Dubois passed the puck Plausible/implausible? 
+A: Pierre-Luc Dubois is a Canadian professional ice hockey player, and passing the puck is a common action in ice hockey. So the answer is plausible. 
+
+Q: Determine whether the following statement or statements are plausible or implausible: Statement: Yordan Alvarez grounded out to second base Plausible/implausible? 
+A: Yordan Alvarez is a Cuban professional baseball player, and grounding out to second base is a common way to make an out in baseball. So the answer is plausible. 
+
+Q: Determine whether the following statement or statements are plausible or implausible: Statement: George Springer committed a blocking foul Plausible/implausible? 
+A: George Springer is an American professional baseball player, and blocking fouls are a common rule in basketball. So the answer is implausible. 
+
+Q: Determine whether the following statement or statements are plausible or implausible: Statement: Baker Mayfield hit nothing but net Plausible/implausible? 
+A: Baker Mayfield is an American professional football player, and hitting nothing but net is a common way to score in basketball. So the answer is implausible. 
+

@@ -1,0 +1,6 @@
+Q: In the US, Thanksgiving is on the fourth Thursday of November. Today is the US Thanksgiving of 2001. What is the date today in MM/DD/YYYY?
+A: The first day of November 2001 or 11/01/2001 is a Thursday, so the first Thursday is on 11/01/2001. The second is on 11/08/2001. The third is on 11/15/2001. So the fourth is on 11/22/2001. So the answer is 11/22/2001.
+
+Q: Jane scheduled 3 apointments with 5 poeple for tomorrow (Tue, 7/9/1972). What is the date one year ago from today in MM/DD/YYYY?
+A: If tomorrow is 7/9/1972, then today is 7/8/1972, and one year ago from today is 7/8/1971. So the answer is 7/8/1971.
+

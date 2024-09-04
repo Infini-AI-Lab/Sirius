@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="description" content="Sirius: Contextual Sparsity with Correction for Efficient LLMs">
   <meta property="og:title" content="Sirius"/>
-  <meta property="og:description" content="Sirius: Contextual Sparsity with Correction for Efficient LLMs"/>
+  <meta property="og:description" content="Sirius: Contextual Sparsity with Correction for Efficient LLMs"/> 
   <meta property="og:url" content="https://Infini-AI-Lab.github.io/Sirius/"/>
   <meta property="og:image" content="static/images/sirius_overview.png" />
   <meta property="og:image:width" content="1200"/>
@@ -52,6 +52,65 @@
   </style> -->
 </head>
 <body>
+    <nav class="navbar" role="navigation" aria-label="main navigation">
+        <div class="navbar-brand">
+          <a class="navbar-item" href="https://Infini-AI-Lab.github.io/Sirius/">
+            <img src="static/images/siriuslogo.png" width="28" height="28">
+          </a>
+      
+          <!-- The following "burger" icon is for the navbar's mobile responsiveness -->
+          <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarBasicExample">
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+          </a>
+        </div>
+      
+        <div id="navbarBasicExample" class="navbar-menu">
+          <div class="navbar-start">
+            <a class="navbar-item" href="#introduction">
+              Introduction 
+            </a>
+            <a class="navbar-item" href="#observation">
+              Observation
+            </a>
+            <a class="navbar-item" href="#motivation">
+                Motivation
+            </a>
+            <a class="navbar-item" href="#results">
+              Results
+            </a>
+            <a class="navbar-item" href="#conclusion">
+              Conclusion
+            </a>
+            <a class="navbar-item" href="#BibTeX">
+              BibTeX
+            </a>
+          </div>
+        </div>
+      </nav>
+      
+      <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        // Get all "navbar-burger" elements
+        const $navbarBurgers = Array.prototype.slice.call(document.querySelectorAll('.navbar-burger'), 0);
+        // Check if there are any navbar burgers
+        if ($navbarBurgers.length > 0) {
+          // Add a click event on each of them
+          $navbarBurgers.forEach(el => {
+            el.addEventListener('click', () => {
+              // Get the target from the "data-target" attribute
+              const target = el.dataset.target;
+              const $target = document.getElementById(target);
+      
+              // Toggle the "is-active" class on both the "navbar-burger" and the "navbar-menu"
+              el.classList.toggle('is-active');
+              $target.classList.toggle('is-active');
+            });
+          });
+        }
+      });
+      </script>
 
   <section class="hero">
     <div class="hero-body">
@@ -71,9 +130,9 @@
               <span class="author-block">
                 <a href="" target="_blank">Zhuoming Chen</a><sup>1</sup>,</span>
               <span class="author-block">
-                <a href="" target="_blank">Zhaozhuo Xu (affiliation not correct)</a><sup>1</sup>,</span> <br>
+                <a href="" target="_blank">Zhaozhuo Xu</a><sup>2</sup>,</span> <br>
               <span class="author-block"> 
-                <a href="" target="_blank">Victoria Lin</a><sup>2</sup>,</span>
+                <a href="" target="_blank">Victoria Lin</a><sup>3</sup>,</span>
               <span class="author-block">
                 <a href="" target="_blank">Beidi Chen</a><sup>1,2</sup>
               </span>
@@ -81,6 +140,7 @@
 
             <div class="is-size-5 publication-authors">
               <span class="author-block"><sup>1</sup>Carnegie Mellon University,</span>
+              <span class="author-block"><sup>1</sup>Stevens Institute of Technology</span>
               <span class="author-block"><sup>2</sup>Meta AI (FAIR)</span>
             </div>
 
@@ -113,7 +173,7 @@
     </div>
   </section>
 
-  <section class="section hero is-light">
+  <section class="section hero is-light" id="introduction">
     <div class="container is-max-desktop">
       <div class="columns is-centered has-text-centered">
         <div class="column is-four-fifths">
@@ -137,7 +197,7 @@
     </div>
   </section>
 
-  <section class="section hero is-light">
+  <section class="section hero is-light" id="observation">
     <div class="container is-max-desktop">
       <div class="columns is-centered has-text-centered">
         <div class="column is-four-fifths">
@@ -264,7 +324,7 @@
     </div>
   </section>
 
-  <section class="section hero is-light">
+  <section class="section hero is-light" id="motivation">
     <div class="container is-max-desktop">
       <div class="columns is-centered">
         <div class="column is-four-fifths">
@@ -287,7 +347,7 @@
     </div>
   </section>
 
-  <section class="section hero is-light">
+  <section class="section hero is-light" id="results">
     <div class="container is-max-desktop">
       <div class="columns is-centered">
         <div class="column is-four-fifths">
@@ -595,7 +655,7 @@
     </div>
   </section>
 
-  <section class="section hero is-light">
+  <section class="section hero is-light" id="conclusion">
     <div class="container is-max-desktop">
       <div class="columns is-centered has-text-centered">
         <div class="column is-four-fifths">

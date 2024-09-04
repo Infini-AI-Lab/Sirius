@@ -1,0 +1,15 @@
+Q: In the US, Thanksgiving is on the fourth Thursday of November. Today is the US Thanksgiving of 2001. What is the date today in MM/DD/YYYY?
+A: The first day of November 2001 or 11/01/2001 is a Thursday, so the first Thursday is on 11/01/2001. The second is on 11/08/2001. The third is on 11/15/2001. So the fourth is on 11/22/2001. So the answer is 11/22/2001.
+
+Q: Jane scheduled 3 apointments with 5 poeple for tomorrow (Tue, 7/9/1972). What is the date one year ago from today in MM/DD/YYYY?
+A: If tomorrow is 7/9/1972, then today is 7/8/1972, and one year ago from today is 7/8/1971. So the answer is 7/8/1971.
+
+Q: Yesterday, Jan 21, 2011, Jane ate 2 pizzas and 5 wings. What is the date one week from today in MM/DD/YYYY?
+A: If yesterday is 01/21/2011, then today is 01/22/2011, and one week from today is 7 days in the future of today, which is 01/29/2011. So the answer is 01/29/2011.
+
+Q: Today is the second day of the third month of 1966. What is the date one week ago from today in MM/DD/YYYY?
+A: If today is in the third month of 1966, then today is in March 1966. Also, today is the second day of March, so today is 03/02/1966. One week ago from today is 7 days in the past of today, which is the 5th last day of February 1966. Since there are 28 days in February 1996, the 5th last day of February 1966 is 02/23/1966. So the answer is 02/23/1966.
+
+Q: Today, 8/3/1997, is a day that we will never forget. What is the date one week from today in MM/DD/YYYY?
+A: If today is 8/3/1997, then one week from today is 7 days in the future of today, which is 8/10/1997. So the answer is 8/10/1997.
+
