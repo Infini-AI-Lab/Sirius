@@ -21,7 +21,7 @@ Sirius, an efficient correction mechanism, which significantly boosts Contextual
 [<a href="">Paper</a>] | [<a href="https://infini-ai-lab.github.io/Sirius/">Blog</a>]
 </div>
 
-<h3>Problem of Contextual Sparsity</h3> 
+<h2>Problem of Contextual Sparsity</h2> 
 <div align="center">
 <img src="static/images/probwebsite.png"/>
 <figcaption>Contextual Sparsity Weakness in Complex Reasoning Tasks</figcaption> 
@@ -34,7 +34,7 @@ CS models are evaluated at their default sparsity (50% neuron sparsity). Across 
 <li>The problem in complex reasoning generation tasks escalates for more well-trained model, given the similar parameter count. </li>
 </ol> 
 
-<h3>Effectiveness of Sirius</h3> 
+<h2>Effectiveness of Sirius</h2> 
 Sirius is proposed to effectively boost the weakness of CS on complex generation tasks on reasoning, while maintaining the efficiency of CS models. Sirius is evaluated on 6 models with 8 different complex tasks ranging from arithmetic reasoning, commonsense reasoning, and code generation. (More detailed results, please refer to the paper). Below we show briefly the results for <a href="meta-llama/Meta-Llama-3-8B-Instruct">Llama-3-8B-Instruct</a> on GSM8K, CSQA, and HumanEval. 
 <table style="font-size: 12px">
                 <caption>Llama-3-8B-Instruct with Sirius Effectiveness on Different Complex Tasks</caption>
@@ -251,20 +251,24 @@ We also show the speedup for the <a href="meta-llama/Meta-Llama-3-70B-Instruct">
                     </table>
                     </div> 
 
-<h3>Overview of the Code</h3> 
-<h4>Environment Setup</h4> 
-<pre>
-<code>pip install -r requirements.txt 
-pip install flash-attn --no-build-isolation </code> 
-</pre>
+<h2>Overview of the Code</h2> 
+
+<!-- -------- -->
+<h3>Environment Setup</h3> 
+
+```
+pip install -r requirements.txt 
+pip install flash-attn --no-build-isolation 
+```
+
 On special package to notice is that since Sirius uses torch.compile to optimize the inference latency, we strictly require PyTorch version to be 2.3.0. 
 
-<h4>Test Sirius Effectiveness and Efficiency Metrics AAL</h4> 
+<h3>Test Sirius Effectiveness and Efficiency Metrics AAL</h3> 
 
-* GSM-8K, GSM-8K-COT, CNN/DailyMail, MMLU-FLAN-COT<br>
+* **GSM-8K, GSM-8K-COT, CNN/DailyMail, MMLU-FLAN-COT**<br>
 We use base our implementation on <a href="https://github.com/EleutherAI/lm-evaluation-harness">LM Evaluation Harness</a> since they support these tasks. The essential blocks are packed in the folder "Miscellaneous". To run the Sirius on various Huggingface models, follow the line. 
-<pre>
-<code>cd Miscellaneous 
+```
+cd Miscellaneous 
 # Full model 
 accelerate launch --main_process_port <main_port> --num_processes <num_procs> --num_machines <num_node> main.py --model xhf --model_args pretrained=<huggingface-token-model>,griffin=False,check=False --tasks <tasks_name> --batch_size 1 
 # Coarse-grained Sparsity 
@@ -272,14 +276,60 @@ accelerate launch --main_process_port <main_port> --num_processes <num_procs> --
 # Fine-grained Sparsity 
 accelerate launch --main_process_port <main_port> --num_processes <num_procs> --num_machines <num_node> main.py --model xhf --model_args pretrained=<huggingface-token-model>,cats=True,check=False --tasks <task_name> --batch_size 1
 # Sirius with Sparse 
-accelerate launch --main_process_port <main_port> --num_processes <num_procs> --num_machines <num_node> main.py --model xhf --model_args pretrained=<huggingface-token-model>,griffin=True,check=True,kernel_size=<kernel_size>,widthtree=<width_tree>,patternstrict=True,thr=0.1 --tasks <task_name> --batch_size 1 </code>
-</pre> 
-For Sirius to be turned on, set <code>check=True</code>. For <code>cats=True</code> and Sirius to have widthtree > 1, <code>patternstrict</code> must set to True. 
+accelerate launch --main_process_port <main_port> --num_processes <num_procs> --num_machines <num_node> main.py --model xhf --model_args pretrained=<huggingface-token-model>,griffin=True,check=True,kernel_size=<kernel_size>,widthtree=<width_tree>,patternstrict=True,thr=0.1 --tasks <task_name> --batch_size 1 
+```
+For Sirius to be turned on, set ```check=True```. For    ```cats=True``` and Sirius to have widthtree > 1, ```patternstrict``` must set to True. 
 
-* For Commonsense Reasoning tasks, we follow the Chain-of-Thought (https://arxiv.org/abs/2201.11903) work to convert previously multiple-choice question dataset CSQA, StrategyQA, Date and Sports into generation question. The essential block is packed in "CommonSenseReasoning" folder. 
+* For **Commonsense Reasoning** tasks, we follow the Chain-of-Thought (https://arxiv.org/abs/2201.11903) work to convert previously multiple-choice question dataset CSQA, StrategyQA, Date and Sports into generation question. The essential block is packed in "CommonSenseReasoning" folder. 
 ```
 cd CommonSenseReasoning
 # Sirius with Sparse 
 accelerate launch --main_process_port <main_port> --num_processes <num_proc> main.py --tasks <task_name> --model <huggingface_token> --shotfive --cats --check --kernel_size <kernel_size> --spr <sparity> --thr <threshold> --widthtree <widthtree> --patternstrict 
+``` 
+Adding ```--cats``` for fine-grained sparsity or ```--griffin``` for coarse-grained sparsity, neither for full model. Adding ```--check``` for using full model for correction, or correction is not used Again, for ```--cats``` and ```<widthtree>```>1, ```--patternstrict``` must be added. ```--shotfive``` is used for 5 fewshot examples, which is the setting where the measurement is performed. 
+
+* For **coding**, we base our implementation on <a href="https://github.com/bigcode-project/bigcode-evaluation-harness">Big Code Evaluation Harness</a>. The essential code are packed in "CodeGeneration" Folder. 
 ```
+cd CodeGeneration 
+accelerate launch --num_processes <num_proc> main.py \
+  --model <huggingface-token-model> \
+  --tasks <task_name> \
+  --do_sample False \
+  --n_samples 1 \
+  --batch_size 1 \
+  --max_length_generation 512 \
+  --enable_epatches \
+  --cats \
+  --allow_code_execution \
+  --spr <sparsity> \
+  --widthtree $treesize \
+  --check \
+  --kernelsize <kernel_size> \
+  --thr <threshold> \
+  --patternstrict \
+```
+In our code, we only use greedy decoding, ```--do_sample``` is False. Similarly, adding ```--cats``` for fine-grained sparsity or ```--griffin``` for coarse-grained sparsity, neither for full model. Adding ```--check``` for using full model for correction, or correction is not used Again, for ```--cats``` and ```<widthtree>```>1, ```--patternstrict``` must be added. For ```<task_name>```, we only support ```humaneval``` and ```mbppplus```. 
+
+<h3>Speedup On-Chip</h3> 
+
+```
+cd Miscellaneous
+```
+<h4>No Tree</h4> 
+
+```
+python main.py --model xhf --model_args pretrained=<huggingface-token-model>,griffin=True,check=True,kernel_size=<kernel_size>,widthtree=<width_tree>,patternstrict=True,thr=0.05 --tasks <task_name> --batch_size 1 
+```
+
+<h4>With Tree (treewidth 4)</h4> 
+
+```
+python main.py --model xhf --model_args pretrained=<huggingface-token-model>,griffin=True,check=True,kernel_size=<kernel_size>,widthtree=<width_tree>,patternstrict=True,thr=0.05 --tasks <task_name> --batch_size 1 
+```
+
+<h4>Offloading</h4> 
+
+```
+python main.py --model xhf --model_args pretrained=<huggingface-token-model>,griffin=True,check=True,kernel_size=<kernel_size>,widthtree=<width_tree>,patternstrict=True,thr=0.05 --tasks <task_name> --batch_size 1 
+``` 
 
