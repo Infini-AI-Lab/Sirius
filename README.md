@@ -314,6 +314,7 @@ accelerate launch --num_processes <num_proc> main.py \
 In our code, we only use greedy decoding, ```--do_sample``` is False. Similarly, adding ```--cats``` for fine-grained sparsity or ```--griffin``` for coarse-grained sparsity, neither for full model. Adding ```--check``` for using full model for correction, or correction is not used Again, for ```--cats``` and ```<widthtree>```>1, ```--patternstrict``` must be added. For ```<task_name>```, we only support ```humaneval``` and ```mbppplus```. 
 
 <h3>Speedup On-Chip</h3> 
+This section presents code for measuring wallclock speedup of Sirius. 
 
 ```
 cd Miscellaneous
