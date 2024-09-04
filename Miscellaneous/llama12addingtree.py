@@ -1,4 +1,9 @@
-# Adapted from Hugging Face implementation
+# Adapted from Hugging Face implementation 
+'''
+SIRIUS addition 
+
+Adding tree and sirius special addition 
+'''
 
 import torch
 import torch.nn as nn
@@ -89,6 +94,7 @@ NEED_SETUP_CACHE_CLASSES_MAPPING = {
 
 from transformers.generation.utils import GenerateOutput, GenerateDecoderOnlyOutput, GenerateNonBeamOutput, GenerateEncoderDecoderOutput
 import time 
+
 def select_neurons(neuron_stat, method, k):
     if method == 'topk':
         weight, indices = torch.topk(neuron_stat, k, dim=-1)
@@ -109,6 +115,7 @@ def select_neurons(neuron_stat, method, k):
         raise NotImplementedError
 
     return weight, indices
+
 def get_llama_griffin(model,  k_schedule, patternstrict): 
     config = model.config
     for i, l in enumerate(model.model.layers):
@@ -235,26 +242,6 @@ class GriffinLlamaMLP(nn.Module): # CATS-like
                 if self.inference_mode == 'full':
                     
                     int_states :torch.Tensor = self.act_fn(self.gate_proj(x)) * self.up_proj(x)
-
-                    # GRIFFIN Expert Selection
-                    # if self.config.selection_method != 'magnitude' and k_factor > 0.0: ###
-                    #     k = int(int_states.shape[-1] * k_factor)
-                        
-                    #     neuron_stat = ((int_states / int_states.norm(dim=-1, keepdim=True))) # B, D
-                    #     neuron_stat = neuron_stat.norm(dim=1)
-                    #     if self.neuron_stat is None:
-                    #         self.neuron_stat = neuron_stat
-                    #         stat = self.neuron_stat
-                    #     else:
-                    #         #self.neuron_stat = self.neuron_stat
-                    #         stat = (8 * neuron_stat.square() + self.neuron_stat.square()).sqrt()
-                    #         self.neuron_stat = (neuron_stat.square() + self.neuron_stat.square()).sqrt()
-                            
-                    #     topk_weight, topk_indices = select_neurons(stat, self.config.selection_method, k)
-                        
-                        
-                        
-                    #     self.prepare_reduced_weights(topk_indices)
                         
                     down_proj = self.down_proj(int_states)
 
@@ -262,14 +249,13 @@ class GriffinLlamaMLP(nn.Module): # CATS-like
                     if k_factor == 0.0:
                         down_proj = 0 * x 
                     else:
-                        #down_proj =self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
 
                         int_states :torch.Tensor = self.act_fn(self.gate_proj(x)) # B, seq_len, D 
 
                         if not self.patternstrict: 
                             assert int_states.shape[1] == 1 
                             _, indices = torch.abs(int_states).topk(k=int(self.k_factor * int_states.shape[-1]), largest=False, dim=-1) # B, seq_len, k 
-                            # int_states[:,:,indices] = 0 
+                            
                             buffrzeros = torch.zeros_like(int_states) 
                             int_states.scatter_(dim = -1, index = indices, src = buffrzeros) 
                         else: 
@@ -277,29 +263,12 @@ class GriffinLlamaMLP(nn.Module): # CATS-like
                             batch_size, seq_len, hidden_size = int_states.shape 
                             intstatesbuffer = int_states.permute(1, 0, 2) # seq_len, batch_size, hidden_size 
                             intstatesbuffer = intstatesbuffer.abs().sum(dim = 1) # seq_len, hidden_size 
-                            # intstatesbuffer = intstatesbuffer/intstatesbuffer.norm(dim = -1, keepdim = True) 
-                            # intstatesbuffer = intstatesbuffer.norm(dim = 1) # seq_len, hidden_size 
+                            
                             _, indices = intstatesbuffer.topk(k = int(self.k_factor * hidden_size), largest = False, dim = -1) 
                             indices = indices.unsqueeze(0).expand(batch_size, -1, -1) # B, seq_len, k 
                             buffrzeros = torch.zeros_like(int_states) 
                             int_states.scatter_(dim = -1, index = indices, src = buffrzeros) 
-                            
-                            '''
-                            batch_size, seq_len, hidden_size = int_states.shape 
-                            assert seq_len == 1 
-                            intstatesbuffer = int_states.permute(1, 0, 2) # seq_len, B, hidden_size 
-                            _, indices = torch.abs(intstatesbuffer).topk(k = int(self.k_factor * hidden_size), largest = False, dim = -1) # indices is of shape (seq_len, B, k) 
-                            indices = indices.reshape(seq_len, (batch_size * int(self.k_factor * hidden_size))) # seq_len, B * hidden_size 
-                            indices = indices.unique(dim = -1) # seq_len, m m larger than or equal to k 
-                            selectedintstates = intstatesbuffer.gather(dim = -1, index = indices.unsqueeze(1).expand(-1, batch_size, -1)) # seq_len, B, m 
-                            selectedintstates = selectedintstates.abs().sum(dim = 1) # seq_len, m 
-                            _, final_indices = selectedintstates.topk(k = int(self.k_factor * hidden_size), largest = False, dim = -1) 
-                            # _, final_indices = intstatesbuffer.abs().sum(dim = 1).topk(k = int(self.k_factor * hidden_size), largest = False, dim = -1) 
-                            final_indices = final_indices.unsqueeze(0).expand(batch_size, -1, -1) # seq_len, B, k 
-                            # final_indices = final_indices.permute(1, 0, 2) # B, seq_len, k 
-                            buffrzeros = torch.zeros_like(int_states) 
-                            int_states.scatter_(dim = -1, index = final_indices, src = buffrzeros) 
-                            ''' 
+
                         int_states *= self.up_proj(x)
                         down_proj = self.down_proj(int_states) 
 
@@ -452,7 +421,6 @@ class GriffinLlamaMLP3(nn.Module): # CATSTHRESHOLD-like
                     if k_factor == 0.0:
                         down_proj = 0 * x 
                     else:
-                        #down_proj =self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
 
                         int_states :torch.Tensor = self.act_fn(self.gate_proj(x)) # B, seq_len, D 
                         norm_ = int_states.norm(dim = -1, keepdim = True).sum(dim = 0) 
@@ -469,7 +437,6 @@ class GriffinLlamaMLP3(nn.Module): # CATSTHRESHOLD-like
         self.neuron_stat = None
 
 class LlamaAttention(nn.Module):
-    """Multi-headed attention from 'Attention Is All You Need' paper"""
 
     def __init__(self, config: LlamaConfig, layer_idx: Optional[int] = None):
         super().__init__()
@@ -638,20 +605,7 @@ class LlamaDecoderLayer(nn.Module):
         cache_position: Optional[torch.LongTensor] = None,
         **kwargs,
     ) -> Tuple[torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]]:
-        """
-        Args:
-            hidden_states (`torch.FloatTensor`): input to the layer of shape `(batch, seq_len, embed_dim)`
-            attention_mask (`torch.FloatTensor`, *optional*):
-                attention mask of size `(batch_size, sequence_length)` if flash attention is used or `(batch_size, 1,
-                query_sequence_length, key_sequence_length)` if default attention is used.
-            output_attentions (`bool`, *optional*):
-                Whether or not to return the attentions tensors of all attention layers. See `attentions` under
-                returned tensors for more detail.
-            use_cache (`bool`, *optional*):
-                If set to `True`, `past_key_values` key value states are returned and can be used to speed up decoding
-                (see `past_key_values`).
-            past_key_value (`Tuple(torch.FloatTensor)`, *optional*): cached past key and value projection states
-        """
+        
         if "padding_mask" in kwargs:
             warnings.warn(
                 "Passing `padding_mask` is deprecated and will be removed in v4.37. Please make sure use `attention_mask` instead.`"
@@ -690,103 +644,7 @@ class LlamaDecoderLayer(nn.Module):
 
         return outputs
 
-LLAMA_START_DOCSTRING = r"""
-    This model inherits from [`PreTrainedModel`]. Check the superclass documentation for the generic methods the
-    library implements for all its model (such as downloading or saving, resizing the input embeddings, pruning heads
-    etc.)
-
-    This model is also a PyTorch [torch.nn.Module](https://pytorch.org/docs/stable/nn.html#torch.nn.Module) subclass.
-    Use it as a regular PyTorch Module and refer to the PyTorch documentation for all matter related to general usage
-    and behavior.
-
-    Parameters:
-        config ([`LlamaConfig`]):
-            Model configuration class with all the parameters of the model. Initializing with a config file does not
-            load the weights associated with the model, only the configuration. Check out the
-            [`~PreTrainedModel.from_pretrained`] method to load the model weights.
-"""
-
-
-LLAMA_INPUTS_DOCSTRING = r"""
-    Args:
-        input_ids (`torch.LongTensor` of shape `(batch_size, sequence_length)`):
-            Indices of input sequence tokens in the vocabulary. Padding will be ignored by default should you provide
-            it.
-
-            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
-            [`PreTrainedTokenizer.__call__`] for details.
-
-            [What are input IDs?](../glossary#input-ids)
-        attention_mask (`torch.Tensor` of shape `(batch_size, sequence_length)`, *optional*):
-            Mask to avoid performing attention on padding token indices. Mask values selected in `[0, 1]`:
-
-            - 1 for tokens that are **not masked**,
-            - 0 for tokens that are **masked**.
-
-            [What are attention masks?](../glossary#attention-mask)
-
-            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
-            [`PreTrainedTokenizer.__call__`] for details.
-
-            If `past_key_values` is used, optionally only the last `input_ids` have to be input (see
-            `past_key_values`).
-
-            If you want to change padding behavior, you should read [`modeling_opt._prepare_decoder_attention_mask`]
-            and modify to your needs. See diagram 1 in [the paper](https://arxiv.org/abs/1910.13461) for more
-            information on the default strategy.
-
-            - 1 indicates the head is **not masked**,
-            - 0 indicates the head is **masked**.
-        position_ids (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
-            Indices of positions of each input sequence tokens in the position embeddings. Selected in the range `[0,
-            config.n_positions - 1]`.
-
-            [What are position IDs?](../glossary#position-ids)
-        past_key_values (`Cache` or `tuple(tuple(torch.FloatTensor))`, *optional*):
-            Pre-computed hidden-states (key and values in the self-attention blocks and in the cross-attention
-            blocks) that can be used to speed up sequential decoding. This typically consists in the `past_key_values`
-            returned by the model at a previous stage of decoding, when `use_cache=True` or `config.use_cache=True`.
-
-            Two formats are allowed:
-            - a [`~cache_utils.Cache`] instance;
-            - Tuple of `tuple(torch.FloatTensor)` of length `config.n_layers`, with each tuple having 2 tensors of
-            shape `(batch_size, num_heads, sequence_length, embed_size_per_head)`). This is also known as the legacy
-            cache format.
-
-            The model will output the same cache format that is fed as input. If no `past_key_values` are passed, the
-            legacy cache format will be returned.
-
-            If `past_key_values` are used, the user can optionally input only the last `input_ids` (those that don't
-            have their past key value states given to this model) of shape `(batch_size, 1)` instead of all `input_ids`
-            of shape `(batch_size, sequence_length)`.
-        inputs_embeds (`torch.FloatTensor` of shape `(batch_size, sequence_length, hidden_size)`, *optional*):
-            Optionally, instead of passing `input_ids` you can choose to directly pass an embedded representation. This
-            is useful if you want more control over how to convert `input_ids` indices into associated vectors than the
-            model's internal embedding lookup matrix.
-        use_cache (`bool`, *optional*):
-            If set to `True`, `past_key_values` key value states are returned and can be used to speed up decoding (see
-            `past_key_values`).
-        output_attentions (`bool`, *optional*):
-            Whether or not to return the attentions tensors of all attention layers. See `attentions` under returned
-            tensors for more detail.
-        output_hidden_states (`bool`, *optional*):
-            Whether or not to return the hidden states of all layers. See `hidden_states` under returned tensors for
-            more detail.
-        return_dict (`bool`, *optional*):
-            Whether or not to return a [`~utils.ModelOutput`] instead of a plain tuple.
-        cache_position (`torch.LongTensor` of shape `(sequence_length)`, *optional*):
-            Indices depicting the position of the input sequence tokens in the sequence. Contrarily to `position_ids`,
-            this tensor is not affected by padding. It is used to update the cache in the correct position and to infer
-            the complete sequence length.
-"""
-
 class LlamaModel(LlamaPreTrainedModel):
-    """
-    Transformer decoder consisting of *config.num_hidden_layers* layers. Each layer is a [`LlamaDecoderLayer`]
-
-    Args:
-        config: LlamaConfig
-    """
 
     def __init__(self, config: LlamaConfig):
         super().__init__(config)
@@ -1071,31 +929,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         return_dict: Optional[bool] = None,
         cache_position: Optional[torch.LongTensor] = None,
     ) -> Union[Tuple, CausalLMOutputWithPast]:
-        r"""
-        Args:
-            labels (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
-                Labels for computing the masked language modeling loss. Indices should either be in `[0, ...,
-                config.vocab_size]` or -100 (see `input_ids` docstring). Tokens with indices set to `-100` are ignored
-                (masked), the loss is only computed for the tokens with labels in `[0, ..., config.vocab_size]`.
-
-        Returns:
-
-        Example:
-
-        ```python
-        >>> from transformers import AutoTokenizer, LlamaForCausalLM
-
-        >>> model = LlamaForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf")
-        >>> tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
-
-        >>> prompt = "Hey, are you conscious? Can you talk to me?"
-        >>> inputs = tokenizer(prompt, return_tensors="pt")
-
-        >>> # Generate
-        >>> generate_ids = model.generate(inputs.input_ids, max_length=30)
-        >>> tokenizer.batch_decode(generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
-        "Hey, are you conscious? Can you talk to me?\nI'm not conscious, but I can talk to you."
-        ```"""
+        
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
@@ -1240,9 +1074,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         # preparing cache_position 
         cache_position = kwargs.get("cache_position", None) 
         if cache_position is None: 
-            # print(colored("cache_position is None", "red")) 
             cache_position = torch.arange(past_length, past_length + position_ids.shape[1], device = input_ids.device, dtype = position_ids.dtype) 
-            # cache_position = position_ids.clone() 
         
         # if `inputs_embeds` are passed, we only want to use them in the 1st generation step
         if inputs_embeds is not None and past_key_values is None:
@@ -1391,101 +1223,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         streamer: Optional["BaseStreamer"] = None,
         **model_kwargs,
     ) -> Union[GenerateNonBeamOutput, torch.LongTensor]: 
-        r"""
-        Generates sequences of token ids for models with a language modeling head using **greedy decoding** and can be
-        used for text-decoder, text-to-text, speech-to-text, and vision-to-text models.
-
-        <Tip warning={true}>
-
-        In most cases, you do not need to call [`~generation.GenerationMixin.greedy_search`] directly. Use generate()
-        instead. For an overview of generation strategies and code examples, check the [following
-        guide](../generation_strategies).
-
-        </Tip>
-
-
-        Parameters:
-            input_ids (`torch.LongTensor` of shape `(batch_size, sequence_length)`):
-                The sequence used as a prompt for the generation.
-            logits_processor (`LogitsProcessorList`, *optional*):
-                An instance of [`LogitsProcessorList`]. List of instances of class derived from [`LogitsProcessor`]
-                used to modify the prediction scores of the language modeling head applied at each generation step.
-            stopping_criteria (`StoppingCriteriaList`, *optional*):
-                An instance of [`StoppingCriteriaList`]. List of instances of class derived from [`StoppingCriteria`]
-                used to tell if the generation loop should stop.
-
-            max_length (`int`, *optional*, defaults to 20):
-                **DEPRECATED**. Use `logits_processor` or `stopping_criteria` directly to cap the number of generated
-                tokens. The maximum length of the sequence to be generated.
-            pad_token_id (`int`, *optional*):
-                The id of the *padding* token.
-            eos_token_id (`Union[int, List[int]]`, *optional*):
-                The id of the *end-of-sequence* token. Optionally, use a list to set multiple *end-of-sequence* tokens.
-            output_attentions (`bool`, *optional*, defaults to `False`):
-                Whether or not to return the attentions tensors of all attention layers. See `attentions` under
-                returned tensors for more details.
-            output_hidden_states (`bool`, *optional*, defaults to `False`):
-                Whether or not to return the hidden states of all layers. See `hidden_states` under returned tensors
-                for more details.
-            output_scores (`bool`, *optional*, defaults to `False`):
-                Whether or not to return the prediction scores. See `scores` under returned tensors for more details.
-            output_logits (`bool`, *optional*, defaults to `False`):
-                Whether or not to return the raw prediction logit scores. See `logits` under returned tensors
-                for more details.
-            return_dict_in_generate (`bool`, *optional*, defaults to `False`):
-                Whether or not to return a [`~utils.ModelOutput`] instead of a plain tuple.
-            synced_gpus (`bool`, *optional*, defaults to `False`):
-                Whether to continue running the while loop until max_length (needed for ZeRO stage 3)
-            streamer (`BaseStreamer`, *optional*):
-                Streamer object that will be used to stream the generated sequences. Generated tokens are passed
-                through `streamer.put(token_ids)` and the streamer is responsible for any further processing.
-            model_kwargs:
-                Additional model specific keyword arguments will be forwarded to the `forward` function of the model.
-                If model is an encoder-decoder model the kwargs should include `encoder_outputs`.
-
-        Return:
-            [`~generation.GenerateDecoderOnlyOutput`], [`~generation.GenerateEncoderDecoderOutput`] or
-            `torch.LongTensor`: A `torch.LongTensor` containing the generated tokens (default behaviour) or a
-            [`~generation.GenerateDecoderOnlyOutput`] if `model.config.is_encoder_decoder=False` and
-            `return_dict_in_generate=True` or a [`~generation.GenerateEncoderDecoderOutput`] if
-            `model.config.is_encoder_decoder=True`.
-
-        Examples:
-
-        ```python
-        >>> from transformers import (
-        ...     AutoTokenizer,
-        ...     AutoModelForCausalLM,
-        ...     LogitsProcessorList,
-        ...     MinLengthLogitsProcessor,
-        ...     StoppingCriteriaList,
-        ...     MaxLengthCriteria,
-        ... )
-
-        >>> tokenizer = AutoTokenizer.from_pretrained("openai-community/gpt2")
-        >>> model = AutoModelForCausalLM.from_pretrained("openai-community/gpt2")
-
-        >>> # set pad_token_id to eos_token_id because GPT2 does not have a PAD token
-        >>> model.generation_config.pad_token_id = model.generation_config.eos_token_id
-
-        >>> input_prompt = "It might be possible to"
-        >>> input_ids = tokenizer(input_prompt, return_tensors="pt").input_ids
-
-        >>> # instantiate logits processors
-        >>> logits_processor = LogitsProcessorList(
-        ...     [
-        ...         MinLengthLogitsProcessor(10, eos_token_id=model.generation_config.eos_token_id),
-        ...     ]
-        ... )
-        >>> stopping_criteria = StoppingCriteriaList([MaxLengthCriteria(max_length=20)])
-
-        >>> outputs = model.greedy_search(
-        ...     input_ids, logits_processor=logits_processor, stopping_criteria=stopping_criteria
-        ... )
-
-        >>> tokenizer.batch_decode(outputs, skip_special_tokens=True)
-        ["It might be possible to get a better understanding of the nature of the problem, but it's not"]
-        ```"""
+        
         initial_len = input_ids.shape[1]
         
         kernel_size = self.config.kernel_size 
@@ -1524,8 +1262,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             if return_dict_in_generate is not None
             else self.generation_config.return_dict_in_generate
         ) 
-        
-        # return_dict_in_generate = True 
 
         # init attention / hidden states / scores tuples
         raw_logits = () if (return_dict_in_generate and output_logits) else None
@@ -1550,7 +1286,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         track_position_ids = None
         track_cache_position = None
         want_to_quit = False
-        # approve_quit = False 
         approve_quit = True 
         last_input_ids_print_pos = initial_len # this variable is for visualization 
         outputs = None 
@@ -1572,9 +1307,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             output_attentions = output_attentions, 
             output_hidden_states = output_hidden_states, 
         ) 
-        
-        # if synced_gpus and this_peer_finished:
-        #     continue  # don't waste resources running the code we don't need 
         
         next_token_logits = outputs.logits[:, -1, :]
         # pre-process distribution
@@ -1613,16 +1345,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             model_inputs["past_key_values"].mode = "decoding" 
             self.batchsizecount += model_inputs["input_ids"].shape[0] 
             if self.config.check and (currentlength - last_check) == kernel_size or (self.config.check and want_to_quit): # to avoid one more pass of the sparse model, here we use a dummy operation to fill in one step into the kv cache 
-                # outputs.past_key_values.adding_one_entry() 
-                # print("model_inputs[past_key_values].shape {}".format(model_inputs["past_key_values"].key_cache[0].shape)) 
                 model_inputs["past_key_values"].adding_one_entry() 
-                # print("adding one input_ids shape {}".format(model_inputs["extended_input_ids"].shape)) 
-                # print("se")
-                # print("after addingone model_inputs[past_key_values].shape {}".format(model_inputs["past_key_values"].key_cache[0].shape)) 
             else: 
-                # print("input_ids shape {}".format(model_inputs["input_ids"].shape)) 
-                # print("extended input_ids shape {}".format(model_inputs["extended_input_ids"].shape)) 
-                # print("cache length {}".format(model_inputs["past_key_values"].get_seq_length())) 
                 outputs = self( # I expand the arguments of model_inputs 
                     input_ids = model_inputs["input_ids"], 
                     position_ids = model_inputs["position_ids"], 
@@ -1684,25 +1408,14 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                     self.batchsizecount = 0 
                     check_flag = True 
                     past_key_values = model_inputs["past_key_values"] 
-                    # past_key_values = outputs.past_key_values 
-                    # print("cache length {}".format(past_key_values.get_seq_length())) 
-                    # print("beforechecking past_key_values shape {}".format(past_key_values.key_cache[0].shape)) 
-                    # print("beforechecking extended input_ids shape {}".format(model_inputs["extended_input_ids"].shape)) 
-                    # print("length of sequence length {}".format(self.beam[0][0].shape[1])) 
                     past_key_values.mode = "checking" # cache is being roll back 
                     checklength = currentlength - last_check 
                     check_input_ids = model_inputs["extended_input_ids"][:, -checklength:] 
-                    # self.flattentreesize += self.merging_tree_into_one_sequence(check_input_ids) 
-                    # last_flatten_tree_size = self.merging_tree_into_one_sequence(check_input_ids) 
                     _, self.flattentreesize = self.merging_tree_into_one_sequence2(check_input_ids) 
                     last_flatten_tree_size = self.flattentreesize 
-                    # print("input_ids shape {}".format(check_input_ids.shape)) 
                     check_attention_mask = model_inputs["attention_mask"] 
-                    # print("check_attention_mask shape {}".format(check_attention_mask.shape)) 
                     check_position_ids = track_position_ids[:, -checklength:] 
-                    # print("check_position_ids shape {}".format(check_position_ids.shape)) 
                     check_cache_position = track_cache_position[-checklength :] 
-                    # print("check_cache_position shape {}".format(check_cache_position.shape)) 
                     
                     self.set_inference_mode("full") 
                     # calling the evaluation 
@@ -1755,20 +1468,17 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                                 print(colored("({:.2f})".format(selected_likelihood[batchdimselection][lengthacceptsbig + i].item()), "red"), flush = True, end = " ") 
                     
                     # roll back 
-                    # past_key_values = self.beam[batchdimselection][2] 
                     past_key_valueslist = GriffinCache.splitcache(model_inputs["past_key_values"]) 
                     past_key_values = past_key_valueslist[batchdimselection] 
-                    # print("before rollback past_key_values shape {}".format(past_key_values.key_cache[0].shape)) 
-                    # print("before rollback input_ids shape {}".format(input_ids.shape)) 
+
                     past_key_values.rollback(step) 
-                    # print("after rollback past_key_values shape {}".format(past_key_values.key_cache[0].shape)) 
+                    
                     past_key_values.mode = "decoding" 
                     last_input_ids_print_pos = last_check + lengthacceptsbig + 1 
                     if step > 0: 
                         input_ids = input_ids[:, : -step] 
                         track_position_ids = track_position_ids[:, :-step] 
                         track_cache_position = track_cache_position[:-step] 
-                        # print("after rollback input_ids shape {}".format(input_ids.shape)) 
                     
                     # setup for next iteration 
                     last_check = input_ids.shape[1] 
@@ -1779,7 +1489,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                         self.errorinstance += 1 
                         last_error_instance = 1 
                         self.total_roll_back_length_error += (checklength - 1 - lengthacceptsbig) 
-                        # self.roll_back_length_in_error.append(checklength - 1 - lengthacceptsbig) 
                         last_roll_back_length_error = checklength - 1 - lengthacceptsbig 
                     else: 
                         last_error_instance = 0 
@@ -1787,7 +1496,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                     if step == 0: 
                         approve_quit = True 
                     
-                    # next_token_logits = outputs.logits[:, -1, :] 
                     next_token_logits = outputs_logits_used[:, -1, :] 
                     next_tokens_scores = logits_processor(input_ids, next_token_logits) 
                     next_tokens = torch.argmax(next_tokens_scores, dim = -1) 
@@ -1799,21 +1507,12 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                         print(colored("Choosing {}".format(batchdimselection), "yellow"), flush = True) 
                     # tree update and beam update 
                     self.completed_sequences = [] 
-                    # self.beam = [(input_ids, next_token_probs[0][next_tokens.item()] + accumulated_logprob, past_key_values)] 
                     self.beam = [(input_ids, next_token_probs[0][next_tokens.item()], past_key_values)] 
                     if next_tokens.item() == self.tokenizer.eos_token_id: # if large model decodes eos token, we break 
                         break 
                 
             if synced_gpus and this_peer_finished:
                 continue  # don't waste resources running the code we don't need 
-
-            # pre-process distribution
-            # next_tokens_scores = logits_processor(input_ids, next_token_logits) 
-
-            # Store scores, attentions and hidden_states when required 
-
-            # argmax
-            # next_tokens = torch.argmax(next_tokens_scores, dim=-1) 
             
             if eos_token_id is not None:
                 if pad_token_id is None:
@@ -1821,7 +1520,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 next_tokens = next_tokens * unfinished_sequences + pad_token_id * (1 - unfinished_sequences)
             
             # update generated ids, model inputs, and length for next step
-            # input_ids = torch.cat([input_ids, next_tokens[:, None]], dim=-1) 
             input_ids = self.beam[0][0] 
             next_tokens = input_ids[:, -1] 
             
@@ -1830,61 +1528,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             model_kwargs = self._update_model_kwargs_for_generation(
                 outputs, model_kwargs, is_encoder_decoder=self.config.is_encoder_decoder
             ) 
-            '''
-            if iteration_count >= 0: 
-                print("running in isolation on beam first sequence: {}".format(self.tokenizer.decode(self.beam[0][0][0, initial_len : ]))) 
-                cacheintermediate = self.beam[0][2].copy() 
-                batch_inputs = [] 
-                batch_kvcache = [] 
-                batch_attentionmask = [] 
-                batch_positionids = [] 
-                batch_cacheposition = [] 
-                for seq, _, cache in self.beam: 
-                    batch_inputs.append(seq[:, -1].unsqueeze(0)) 
-                    batch_kvcache.append(cache) 
-                    batch_attentionmask.append(torch.ones((1, 1), dtype = input_ids.dtype).to(input_ids.device)) 
-                    batch_positionids.append(torch.tensor([[self.beam[0][0].shape[1] - 1]], dtype = input_ids.dtype).to(input_ids.device)) 
-                    batch_cacheposition.append(torch.arange(cacheintermediate.seen_tokens, cacheintermediate.seen_tokens + 1, device = input_ids.device, dtype = input_ids.dtype).unsqueeze(0)) 
-                # print("cacheintermediate seen tokens {}".format(cacheintermediate.seen_tokens)) 
-                # cache_position = torch.arange(cacheintermediate.seen_tokens, cacheintermediate.seen_tokens + 1, device = input_ids.device, dtype = input_ids.dtype) 
-                # attention_mask = torch.ones((1, 1), dtype = input_ids.dtype).to(input_ids.device) 
-                # position_ids = torch.tensor([[self.beam[0][0].shape[1]]], dtype = input_ids.dtype).to(input_ids.device) 
-                # print("input_ids shape {}".format(self.beam[0][0].shape)) 
-                # print(self.tokenizer.decode(self.beam[0][0][0]), flush = True) 
-                print("type of kv cache {}".format(type(self.beam[0][2]))) 
-                # print("input shape {} attention mask {} cache position shape {}".format(torch.cat(batch_inputs, dim = 0).shape, torch.cat(batch_attentionmask, dim = 0).shape, torch.cat(batch_cacheposition, dim = 0).shape)) 
-                self.set_inference_mode("partial") 
-                outputstwo = self(
-                    # input_ids = self.beam[0][0][:, -1].unsqueeze(0).repeat(len(self.beam), 1), 
-                    input_ids = torch.cat(batch_inputs, dim = 0), 
-                    # input_ids = input_ids[:, : -2], 
-                    # attention_mask = torch.ones_like(self.beam[0][0]), 
-                    attention_mask = torch.cat(batch_attentionmask, dim = 0), 
-                    # position_ids = torch.arange(1, self.beam[0][0].shape[1] + 1, device = input_ids.device, dtype = input_ids.dtype).unsqueeze(0), 
-                    position_ids = torch.cat(batch_positionids, dim = 0), 
-                    use_cache = True, 
-                    past_key_values = GriffinCache.stackcache(batch_kvcache), 
-                    return_dict = True, 
-                    # cache_position = model_kwargs["cache_position"], 
-                    # cache_position = torch.cat(batch_cacheposition, dim = 0), 
-                    cache_position = batch_cacheposition[0], 
-                    # cache_position = torch.arange(0, self.beam[0][0].shape[1], device = input_ids.device, dtype = input_ids.dtype), 
-                ) 
-                next_token_logits2 = outputstwo.logits[:, -1, :] 
-                for i in range(next_token_logits2.shape[0]): 
-                    print("checking whether the input is the same {}".format(self.tokenizer.decode(batch_inputs[i][0])), flush = True) 
-                    next_token_logits = next_token_logits2[i].unsqueeze(0) 
-                    # next_tokens_scores = logits_processor(input_ids, next_token_logits) 
-                    next_tokens_scores = torch.softmax(next_token_logits/0.6, dim = -1) 
-                    topk, topkidx = torch.topk(next_tokens_scores, self.k, dim = -1) 
-                    topk = topk.squeeze(0) 
-                    topkidx = topkidx.squeeze(0) 
-                    print("topkidx shape {}, topk shape {}".format(topkidx.shape, topk.shape), flush = True) 
-                    for logprob, ids in zip(topk, topkidx): 
-                        print(colored("({}, {})".format(self.tokenizer.decode(ids.item()), logprob.item()), color = "yellow"), flush = True) 
-                    print() 
-                exit(0) 
-            ''' 
             if check_flag: 
                 model_kwargs["attention_mask"] = model_kwargs["attention_mask"][...,:input_ids.shape[1]] 
             
@@ -1921,8 +1564,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
 
             else: 
                 this_peer_finished = False 
-
-            # print("stopping_criteria {}".format(stopping_criteria)) 
             
             if this_peer_finished and not synced_gpus: 
                 want_to_quit = True 
@@ -1941,8 +1582,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         self.batchsizecount = 0 
         if self.config.check: 
             self.rollbacklastchunkstatistic(last_total_step, last_error_instance, last_roll_back_length_error, last_flatten_tree_size, last_average_drafting_batch_size = last_drafting_batch_size) 
-        # print("total generation length {}".format(self.totalgenerationlength)) 
-        # print(self.tokenizer.decode(input_ids[0][initial_len : ])) 
 
         if return_dict_in_generate: 
             if self.config.is_encoder_decoder:

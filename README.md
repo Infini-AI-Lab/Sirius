@@ -264,6 +264,7 @@ pip install flash-attn --no-build-isolation
 On special package to notice is that since Sirius uses torch.compile to optimize the inference latency, we strictly require PyTorch version to be 2.3.0. 
 
 <h3>Test Sirius Effectiveness and Efficiency Metrics AAL</h3> 
+This section presents code that is for testing only the effectiveness and specific efficiency metrics AAL. The implementation isn't for best speedup. 
 
 * **GSM-8K, GSM-8K-COT, CNN/DailyMail, MMLU-FLAN-COT**<br>
 We use base our implementation on <a href="https://github.com/EleutherAI/lm-evaluation-harness">LM Evaluation Harness</a> since they support these tasks. The essential blocks are packed in the folder "Miscellaneous". To run the Sirius on various Huggingface models, follow the line. 
@@ -278,7 +279,9 @@ accelerate launch --main_process_port <main_port> --num_processes <num_procs> --
 # Sirius with Sparse 
 accelerate launch --main_process_port <main_port> --num_processes <num_procs> --num_machines <num_node> main.py --model xhf --model_args pretrained=<huggingface-token-model>,griffin=True,check=True,kernel_size=<kernel_size>,widthtree=<width_tree>,patternstrict=True,thr=0.1 --tasks <task_name> --batch_size 1 
 ```
-For Sirius to be turned on, set ```check=True```. For    ```cats=True``` and Sirius to have widthtree > 1, ```patternstrict``` must set to True. 
+For Sirius to be turned on, set ```check=True```. ```cats=True``` for fine-grained sparsity, while ```griffin=True``` for coarse-grained sparsity. **Importantly, fine-grained sparsity here is based on topk not the threshold as in** https://arxiv.org/abs/2404.08763. Unfortunately, their implementation isn't open-sourced, and using the threshold isn't safe for testing multiple different generation datasets and maintaining the same neuron sparsity level. 
+
+For    ```cats=True``` and Sirius to have widthtree > 1, ```patternstrict``` must set to True. 
 
 * For **Commonsense Reasoning** tasks, we follow the Chain-of-Thought (https://arxiv.org/abs/2201.11903) work to convert previously multiple-choice question dataset CSQA, StrategyQA, Date and Sports into generation question. The essential block is packed in "CommonSenseReasoning" folder. 
 ```
@@ -318,18 +321,19 @@ cd Miscellaneous
 <h4>No Tree</h4> 
 
 ```
-python main.py --model xhf --model_args pretrained=<huggingface-token-model>,griffin=True,check=True,kernel_size=<kernel_size>,widthtree=<width_tree>,patternstrict=True,thr=0.05 --tasks <task_name> --batch_size 1 
+python main.py --model xhf --model_args pretrained=<huggingface-token-model>,griffin=True,check=True,kernel_size=<kernel_size>,widthtree=<width_tree>,patternstrict=True,thr=0.05,mode=wallclock_notree --tasks <task_name> --batch_size 1 
 ```
 
-<h4>With Tree (treewidth 4)</h4> 
+<h4>With Tree</h4> 
+Right now, we only suuport treewidth of four. 
 
 ```
-python main.py --model xhf --model_args pretrained=<huggingface-token-model>,griffin=True,check=True,kernel_size=<kernel_size>,widthtree=<width_tree>,patternstrict=True,thr=0.05 --tasks <task_name> --batch_size 1 
+python main.py --model xhf --model_args pretrained=<huggingface-token-model>,griffin=True,check=True,kernel_size=<kernel_size>,widthtree=<width_tree>,patternstrict=True,thr=0.05,mode=wallclock_tree --tasks <task_name> --batch_size 1 
 ```
 
 <h4>Offloading</h4> 
 
 ```
-python main.py --model xhf --model_args pretrained=<huggingface-token-model>,griffin=True,check=True,kernel_size=<kernel_size>,widthtree=<width_tree>,patternstrict=True,thr=0.05 --tasks <task_name> --batch_size 1 
+python main.py --model xhf --model_args pretrained=<huggingface-token-model>,griffin=True,check=True,kernel_size=<kernel_size>,widthtree=<width_tree>,patternstrict=True,thr=0.05,mode=wallclock_70b --tasks <task_name> --batch_size 1 
 ``` 
 

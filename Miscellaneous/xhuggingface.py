@@ -4,39 +4,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import List, Literal, Optional, Tuple, Union 
 import torch.distributed as dist 
-#from transformers import LlamaForCausalLM
-# from llama3 import get_llama_griffin, LlamaForCausalLM 
-# from llama8 import get_llama_griffin, get_llama_griffin2, LlamaForCausalLM 
-# from llama9 import get_llama_griffin, get_llama_griffin2, LlamaForCausalLM 
-# from llama10 import get_llama_griffin, get_llama_griffin2, LlamaForCausalLM 
-# from llama10skipcorrection import get_llama_griffin, get_llama_griffin2, LlamaForCausalLM 
-# from llama11 import get_llama_griffin, get_llama_griffin2, LlamaForCausalLM 
-# from llama12 import get_llama_griffin, get_llama_griffin2, LlamaForCausalLM 
-# from llama12 import get_llama_griffin, get_llama_griffin2, LlamaForCausalLM 
-# from llama12 import get_llama_griffin3 
-# from llama12profiling import get_llama_griffin, get_llama_griffin2, get_llama_griffin3, LlamaForCausalLM 
-# from llama12_static_cache_flashattn import get_llama_griffin, get_llama_griffin2, get_llama_griffin3, LlamaForCausalLM 
-# from llama12_static_cache_sdpa import get_llama_griffin, get_llama_griffin2, get_llama_griffin3, LlamaForCausalLM 
-# from llama12_static_cache_sdpa_with_treee import get_llama_griffin, get_llama_griffin2, get_llama_griffin3, LlamaForCausalLM 
-# from llama12_static_cache_sdpa_with_treewo import get_llama_griffin, get_llama_griffin2, get_llama_griffin3, LlamaForCausalLM 
-# from llama12_static_cache_sdpa_with_check import get_llama_griffin, get_llama_griffin2, get_llama_griffin3, LlamaForCausalLM 
-# from llama12_static_cache_sdpa_with_check3 import get_llama_griffin, get_llama_griffin2, get_llama_griffin3, LlamaForCausalLM 
-# from llama12_static_cache_sdpa_with_check33 import get_llama_griffin, get_llama_griffin2, get_llama_griffin3, LlamaForCausalLM 
-# from llama12_static_cache_sdpa_attempt import get_llama_griffin, get_llama_griffin2, get_llama_griffin3, LlamaForCausalLM 
-# from generatefunction import generate 
-# from llama12_static_cache_sdpa_with_check2 import get_llama_griffin, get_llama_griffin2, get_llama_griffin3, LlamaForCausalLM 
-# from transformers import LlamaForCausalLM 
-# from llama12profiling import get_llama_normal 
-# from transformers import LlamaForCausalLM 
-# from llama_clean_profiling import get_llama_griffin2, LlamaForCausalLM 
-# from llama_clean_profiling import get_llama_normal 
-# from llama12attemptaddingcudagraph import get_llama_griffin, get_llama_griffin2, get_llama_griffin3, LlamaForCausalLM 
-# from llama12attemptaddingcudagraph import get_llama_normal 
-from llama12addingtree import get_llama_griffin, get_llama_griffin2, get_llama_griffin3, LlamaForCausalLM 
-# from llama12gathermv import get_llama_griffin2, get_llama_griffin2two, LlamaForCausalLM 
-# from llama12addingtreestrict import get_llama_griffin, get_llama_griffin2, get_llama_griffin3, LlamaForCausalLM 
-#from xLLaMA import XLlamaForCausalLM
-#from medusa.model.medusa_model import MedusaModel
+
 import torch
 import torch.nn.functional as F
 import transformers
@@ -503,6 +471,7 @@ class XHFLM(TemplateLM):
         filteractiveenabled = False, 
         contextlength = 2048, 
         attentionimplementation = "sdpa", 
+        mode = "plain", 
         # arguments used for splitting a model across GPUs naively.
         # only used if `parallelize=True`.
         # (accelerate naive PP (device_map) options)
@@ -527,17 +496,31 @@ class XHFLM(TemplateLM):
         HF's public interface relied on in this HFLM class)
         please consider subclassing HFLM and overriding this and other methods as needed.
         """
-        # self._model = MedusaModel.from_pretrained(
-        #     "FasterDecoding/medusa-1.0-vicuna-7b-v1.5",
-        #     torch_dtype=torch.float16,
-        #)
+        
+        """
+        SIRIUS addition: 
+        Define the model and prepare the sparse and correction. 
+        """ 
+        if mode == "plain": 
+            from llama12addingtree import get_llama_griffin, get_llama_griffin2, LlamaForCausalLM 
+        elif mode == "wallclock_notree": 
+            from llama12_static_cache_sdpa_with_check3 import get_llama_griffin, get_llama_griffin2, LlamaForCausalLM 
+        elif mode == "wallclock_tree": 
+            from llama12_static_cache_sdpa_with_treee import get_llama_griffin, get_llama_griffin2, LlamaForCausalLM 
+        elif mode == "wallclock_70b": 
+            from llama12pipa import get_llama_griffin, get_llama_griffin2 
+            from llama12pipa import LlamaForCausalLMPipa, LlamaForCausalLMPipanochecks 
+            from llamalargeweightrunoffload import run_inference, LlamaLargeOffload 
 
-        assert not (griffin and cats)
-        self._model = LlamaForCausalLM.from_pretrained(
-            pretrained,
-         torch_dtype=get_dtype(torch.bfloat16), 
-         device_map=str(self.device),
-        ) 
+        assert not (griffin and cats) 
+        if mode != "wallclock_70b": 
+            self._model = LlamaForCausalLM.from_pretrained(
+                pretrained,
+            torch_dtype=get_dtype(torch.bfloat16), 
+            device_map=str(self.device),
+            ) 
+        else: 
+            self._model = LlamaForCausalLMPipa.from_pretrained("meta-llama/Meta-Llama-3-70B-Instruct", device_map = "cpu", torch_dtype = torch.bfloat16) 
 
         if griffin:
             schedule_k = [spr for _ in range(self._model.config.num_hidden_layers)]
@@ -572,32 +555,6 @@ class XHFLM(TemplateLM):
         if cats:
             self._model = get_llama_griffin(self._model, schedule_k, patternstrict) 
             # self._model = get_llama_griffin(self._model, schedule_k) 
-        '''
-        if not griffin and not cats and not check: 
-            print("packaging") 
-            self._model = get_llama_normal(self._model) 
-        ''' 
-        '''
-        if thresholdbased: 
-            print("Threshold based") 
-            print("{}".format(pretrained == "meta-llama/Meta-Llama-3-8B")) 
-            self._model.config.threshold = True 
-            if pretrained == "meta-llama/Meta-Llama-3-8B-Instruct": 
-                if spr == 0.5: 
-                    self._model.config.threshold_file = "llama3-8B_bsz1_0.5.npy" 
-                elif spr == 0.4: 
-                    self._model.config.threshold_file = "llama3-8B_bsz1_0.6.npy" 
-                elif spr == 0.3: 
-                    self._model.config.threshold_file = "llama3-8B_bsz1_0.3.npy" 
-                else: 
-                    raise ValueError("Threshold file not found") 
-            elif pretrained == "meta-llama/Llama-2-7b-hf": 
-                self._model.config.threshold_file = "llama2-7B_bsz1_0.5.npy" 
-            else: 
-                raise ValueError("Threshold file not found") 
-            print("filename {}".format(self._model.config.threshold_file)) 
-            self._model = get_llama_griffin3(self._model, schedule_k) 
-        ''' 
 
         return None
 
@@ -1284,6 +1241,10 @@ class XHFLM(TemplateLM):
         # reorder this group of results back to original unsorted form
         res = re_ords.get_original(res)
         
+        '''
+        SIRIUS addition: 
+        Below we add useful printouts on the Efficiency Metrics of applying sirius. 
+        '''
         pbar.close() 
         headers = [] 
         data = [] 
@@ -1318,7 +1279,7 @@ class XHFLM(TemplateLM):
             averagerollbacklengtherror = total_roll_back_length_error / errorinstance 
             headers += ["Total Roll Back Length Error", "Error Instance", "Average Roll Back Length Error"] 
             data += [total_roll_back_length_error, errorinstance, averagerollbacklengtherror] 
-            '''
+            
             # tree size statistics 
             totaltreesize = self._model.flattentreesize 
             draftingtreesize = self._model.averagedraftingbatchsize 
@@ -1328,21 +1289,9 @@ class XHFLM(TemplateLM):
             totaltreesize = totaltreesize[0].item() 
             headers += ["Effective Tree Size", "Drafting Tree Size"] 
             data += [totaltreesize/num_step, draftingtreesize/num_step] 
-            ''' 
-            # if getattr(self._model, "findinggreedydecoded"): 
-            '''
-            findinggreedy = self._model.findinggreedydecoded 
-            findinggreedy = torch.tensor(findinggreedy, device = self.device) 
-            dist.all_reduce(findinggreedy, op = dist.ReduceOp.SUM) 
-            findinggreedy = findinggreedy.item() 
-            headers += ["Finding Greedy Decoded"] 
-            data += [findinggreedy] 
             
-            import numpy as np 
-            np.save("{}rollbacklengtherror{}.npy".format("gsm8k", self.accelerator.process_index), self._model.roll_back_length_in_error) 
-            ''' 
         if self.accelerator.is_main_process: 
             print(tabulate([data], headers=headers, tablefmt="grid")) 
         self._model.updatestatistic() 
-        #self.model.save_file()
+        
         return res

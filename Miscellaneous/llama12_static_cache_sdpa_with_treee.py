@@ -1,3 +1,11 @@
+# Adapted from Huggingface 
+'''
+SIRIUS addition 
+
+Speedup with tree 
+Latency will print with AAL 
+'''
+
 from typing import List, Optional, Tuple, Union
 import torch
 from torch import nn
