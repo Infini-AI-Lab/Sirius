@@ -277,8 +277,9 @@ accelerate launch --main_process_port <main_port> --num_processes <num_procs> --
 For Sirius to be turned on, set <code>check=True</code>. For <code>cats=True</code> and Sirius to have widthtree > 1, <code>patternstrict</code> must set to True. 
 
 * For Commonsense Reasoning tasks, we follow the Chain-of-Thought (https://arxiv.org/abs/2201.11903) work to convert previously multiple-choice question dataset CSQA, StrategyQA, Date and Sports into generation question. The essential block is packed in "CommonSenseReasoning" folder. 
-<pre>
-<code>cd CommonSenseReasoning
+```
+cd CommonSenseReasoning
 # Sirius with Sparse 
-accelerate launch --main_process_port <main_port> --num_processes <num_proc> main.py --tasks <task_name> --model <huggingface_token> --shotfive --cats --check --kernel_size <kernel_size> --spr  --thr 0.05  --widthtree 4 --patternstrict 
+accelerate launch --main_process_port <main_port> --num_processes <num_proc> main.py --tasks <task_name> --model <huggingface_token> --shotfive --cats --check --kernel_size <kernel_size> --spr <sparity> --thr <threshold> --widthtree <widthtree> --patternstrict 
+```
 
