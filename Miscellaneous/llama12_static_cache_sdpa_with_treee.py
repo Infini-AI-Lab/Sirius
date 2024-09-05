@@ -2,7 +2,7 @@
 '''
 SIRIUS addition 
 
-Speedup with tree 
+Speedup with tree (only supports treewidth 4) 
 Latency will print with AAL 
 '''
 
@@ -45,19 +45,6 @@ from transformers.generation.utils import GenerateOutput, GenerateDecoderOnlyOut
 
 from time import time 
 from termcolor import colored 
-
-# from transformers.utils import (
-#     add_start_docstrings,
-#     add_start_docstrings_to_model_forward,
-#     is_flash_attn_2_available,
-#     is_flash_attn_greater_or_equal_2_10,
-#     logging,
-#     replace_return_docstrings,
-# )
-
-# if is_flash_attn_2_available():
-#     from flash_attn import flash_attn_func, flash_attn_varlen_func
-#     from flash_attn.bert_padding import index_first_axis, pad_input, unpad_input  # noqa 
 
 from cache import StaticCache2 
 
@@ -115,54 +102,10 @@ def get_llama_griffin(model,  k_schedule):
     
     return model 
 
-class LlamaMLPnotnorma(nn.Module): 
-    def __init__(self, config, k_factor):
-        super().__init__()
-        self.config = config
-        self.hidden_size = config.hidden_size
-        self.intermediate_size = config.intermediate_size 
-        print("hidden_size {} intermediate_size {}".format(self.hidden_size, self.intermediate_size / 2)) 
-        self.gate_proj = nn.Linear(self.hidden_size, self.intermediate_size // 2, bias = False) 
-        self.up_proj = nn.Linear(self.hidden_size, self.intermediate_size // 2, bias = False) 
-        self.down_proj = nn.Linear(self.intermediate_size // 2, self.hidden_size, bias = False) 
-        self.act_fn = F.silu
-        
-        self.k_factor = k_factor
-        self.mode = config.mode
-        self.inference_mode = "full"
-        self.neuron_stat: torch.Tensor = None
-        self.reference = 0
-        assert self.inference_mode in ["full", "partial", "pass"]
-        assert self.mode in ['gen', 'class'] 
-        self.profilingid = 0 
-        # self.start_event = torch.cuda.Event(enable_timing = True) 
-        # self.end_event = torch.cuda.Event(enable_timing = True) 
-    
-    def forward(self, x): 
-        # torch.cuda.nvtx.range_push("MLP single layer") 
-        if self.profilingid == 0: 
-            down_proj = self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x)) 
-        else: 
-            for i in range(100): # Warmup 
-                # int_states = self.act_fn(self.gate_proj(x)) * self.up_proj(x) 
-                # down_proj = self.down_proj(int_states) 
-                down_proj = self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x)) 
-            torch.cuda.synchronize() 
-            starttime = time() 
-            for i in range(1): 
-                down_proj = self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x)) 
-            torch.cuda.synchronize() 
-            endtime = time() 
-            print("Time taken: {}".format(endtime - starttime)) 
-            exit(0) 
-        # torch.cuda.nvtx.range_pop() 
-        return down_proj 
-
 def get_llama_griffin2(model,  k_schedule):
     config = model.config
     for i, l in enumerate(model.model.layers):
         new_mlp = GriffinLlamaMLP2(config, k_schedule[i]) 
-        # new_mlp = LlamaMLPnotnorma(config, k_schedule).to(model.device).to(torch.bfloat16) 
         new_mlp.gate_proj = l.mlp.gate_proj 
         new_mlp.up_proj = l.mlp.up_proj 
         new_mlp.down_proj = l.mlp.down_proj 
@@ -185,7 +128,6 @@ def get_llama_griffin2(model,  k_schedule):
 def get_llama_griffin3(model,  k_schedule):
     config = model.config
     for i, l in enumerate(model.model.layers):
-        # new_mlp = GriffinLlamaMLP2(config, k_schedule[i]) 
         new_mlp = GriffinLlamaMLP3(config, k_schedule[i], i) 
         new_mlp.gate_proj = l.mlp.gate_proj
         new_mlp.up_proj = l.mlp.up_proj
@@ -261,26 +203,6 @@ class GriffinLlamaMLP(nn.Module): # CATS-like
                 if self.inference_mode == 'full':
                     
                     int_states :torch.Tensor = self.act_fn(self.gate_proj(x)) * self.up_proj(x)
-
-                    # GRIFFIN Expert Selection
-                    # if self.config.selection_method != 'magnitude' and k_factor > 0.0: ###
-                    #     k = int(int_states.shape[-1] * k_factor)
-                        
-                    #     neuron_stat = ((int_states / int_states.norm(dim=-1, keepdim=True))) # B, D
-                    #     neuron_stat = neuron_stat.norm(dim=1)
-                    #     if self.neuron_stat is None:
-                    #         self.neuron_stat = neuron_stat
-                    #         stat = self.neuron_stat
-                    #     else:
-                    #         #self.neuron_stat = self.neuron_stat
-                    #         stat = (8 * neuron_stat.square() + self.neuron_stat.square()).sqrt()
-                    #         self.neuron_stat = (neuron_stat.square() + self.neuron_stat.square()).sqrt()
-                            
-                    #     topk_weight, topk_indices = select_neurons(stat, self.config.selection_method, k)
-                        
-                        
-                        
-                    #     self.prepare_reduced_weights(topk_indices)
                         
                     down_proj = self.down_proj(int_states)
 
@@ -288,12 +210,11 @@ class GriffinLlamaMLP(nn.Module): # CATS-like
                     if k_factor == 0.0:
                         down_proj = 0 * x 
                     else:
-                        #down_proj =self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
 
                         int_states :torch.Tensor = self.act_fn(self.gate_proj(x))
 
                         _, indices = torch.abs(int_states).topk(k=int(self.k_factor * int_states.shape[-1]), largest=False, dim=-1)
-                        # int_states[:,:,indices] = 0 
+                        
                         buffrzeros = torch.zeros_like(int_states) 
                         int_states.scatter_(dim = -1, index = indices, src = buffrzeros) 
 
@@ -471,11 +392,6 @@ class LlamaMLP(nn.Module):
         self.gate_proj = nn.Linear(self.hidden_size, self.intermediate_size, bias=False) 
         self.up_proj = nn.Linear(self.hidden_size, self.intermediate_size, bias=False) 
         self.down_proj = nn.Linear(self.intermediate_size, self.hidden_size, bias=False) 
-        '''
-        self.gate_proj = nn.Linear(self.hidden_size, self.intermediate_size//2, bias = False) 
-        self.up_proj = nn.Linear(self.hidden_size, self.intermediate_size//2, bias = False) 
-        self.down_proj = nn.Linear(self.intermediate_size//2, self.hidden_size, bias = False) 
-        ''' 
         self.act_fn = F.silu 
 
     def forward(self, x): 
@@ -594,8 +510,6 @@ class LlamaAttention(nn.Module):
         key_states = repeat_kv(key_states, self.num_key_value_groups)
         value_states = repeat_kv(value_states, self.num_key_value_groups)
 
-        
-        # print(colored("key_states shape {}".format(key_states.shape), "blue")) 
         attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
 
         if attention_mask is not None:  # no matter the length, we just slice it
@@ -607,7 +521,6 @@ class LlamaAttention(nn.Module):
         attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
         
         attn_weights = nn.functional.dropout(attn_weights, p=self.attention_dropout, training=self.training)
-        #attn_weights[1:] = nn.functional.dropout(attn_weights[1:], p=0.01)
         attn_output = torch.matmul(attn_weights, value_states)
 
         if attn_output.size() != (bsz, self.num_heads, q_len, self.head_dim):
@@ -633,11 +546,6 @@ class LlamaAttention(nn.Module):
         return attn_output, attn_weights, past_key_value 
 
 class LlamaSdpaAttention(LlamaAttention):
-    """
-    Llama attention module using torch.nn.functional.scaled_dot_product_attention. This module inherits from
-    `LlamaAttention` as the weights of the module stays untouched. The only changes are on the forward pass to adapt to
-    SDPA API.
-    """
 
     # Adapted from LlamaAttention.forward
     def forward(
@@ -707,201 +615,6 @@ class LlamaSdpaAttention(LlamaAttention):
         attn_output = self.o_proj(attn_output)
 
         return attn_output, None, past_key_value
-
-class LlamaFlashAttention2(LlamaAttention):
-    """
-    Llama flash attention module. This module inherits from `LlamaAttention` as the weights of the module stays
-    untouched. The only required change would be on the forward pass where it needs to correctly call the public API of
-    flash attention and deal with padding tokens in case the input contains any of them.
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # TODO: Should be removed once Flash Attention for RoCm is bumped to 2.1.
-        # flash_attn<2.1 generates top-left aligned causal mask, while what is needed here is bottom-right alignement, that was made default for flash_attn>=2.1. This attribute is used to handle this difference. Reference: https://github.com/Dao-AILab/flash-attention/releases/tag/v2.1.0.
-        # Beware that with flash_attn<2.1, using q_seqlen != k_seqlen (except for the case q_seqlen == 1) produces a wrong mask (top-left).
-        self._flash_attn_uses_top_left_mask = not is_flash_attn_greater_or_equal_2_10()
-
-    def forward(
-        self,
-        hidden_states: torch.Tensor,
-        attention_mask: Optional[torch.LongTensor] = None,
-        position_ids: Optional[torch.LongTensor] = None,
-        past_key_value: Optional[Cache] = None,
-        output_attentions: bool = False,
-        use_cache: bool = False,
-        cache_position: Optional[torch.LongTensor] = None,
-        **kwargs,
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
-        '''
-        if isinstance(past_key_value, StaticCache):
-            raise ValueError(
-                "`static` cache implementation is not compatible with `attn_implementation==flash_attention_2` "
-                "make sure to use `sdpa` in the mean time, and open an issue at https://github.com/huggingface/transformers"
-            )
-        ''' 
-        output_attentions = False
-
-        bsz, q_len, _ = hidden_states.size()
-
-        query_states = self.q_proj(hidden_states)
-        key_states = self.k_proj(hidden_states)
-        value_states = self.v_proj(hidden_states)
-
-        # Flash attention requires the input to have the shape
-        # batch_size x seq_length x head_dim x hidden_dim
-        # therefore we just need to keep the original shape
-        query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2) # bsz, num_heads, q_len, head_dim 
-        key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2) # bsz, num_heads, q_len, head_dim 
-        # value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2) # bsz, num_heads, q_len, head_dim 
-        value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim) 
-
-        cos, sin = self.rotary_emb(value_states, position_ids)
-        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin) 
-        
-        # TODO: These transpose are quite inefficient but Flash Attention requires the layout [batch_size, sequence_length, num_heads, head_dim]. We would need to refactor the KV cache
-        # to be able to avoid many of these transpose/reshape/view.
-        query_states = query_states.transpose(1, 2)
-        key_states = key_states.transpose(1, 2) 
-
-        if past_key_value is not None:
-            # sin and cos are specific to RoPE models; cache_position needed for the static cache
-            cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
-            key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
-        
-
-        dropout_rate = self.attention_dropout if self.training else 0.0
-
-        # In PEFT, usually we cast the layer norms in float32 for training stability reasons
-        # therefore the input hidden states gets silently casted in float32. Hence, we need
-        # cast them back in the correct dtype just to be sure everything works as expected.
-        # This might slowdown training & inference so it is recommended to not cast the LayerNorms
-        # in fp32. (LlamaRMSNorm handles it correctly)
-
-        input_dtype = query_states.dtype
-        if input_dtype == torch.float32:
-            if torch.is_autocast_enabled():
-                target_dtype = torch.get_autocast_gpu_dtype()
-            # Handle the case where the model is quantized
-            elif hasattr(self.config, "_pre_quantization_dtype"):
-                target_dtype = self.config._pre_quantization_dtype
-            else:
-                target_dtype = self.q_proj.weight.dtype 
-
-            query_states = query_states.to(target_dtype)
-            key_states = key_states.to(target_dtype)
-            value_states = value_states.to(target_dtype)
-
-        attn_output = self._flash_attention_forward(
-            query_states, key_states, value_states, attention_mask, q_len, dropout=dropout_rate
-        ) 
-        # attn_output = query_states 
-
-        attn_output = attn_output.reshape(bsz, q_len, self.hidden_size).contiguous()
-        attn_output = self.o_proj(attn_output)
-
-        if not output_attentions:
-            attn_weights = None
-
-        return attn_output, attn_weights, past_key_value
-
-    def _flash_attention_forward(
-        self, query_states, key_states, value_states, attention_mask, query_length, dropout=0.0, softmax_scale=None
-    ):
-        """
-        Calls the forward method of Flash Attention - if the input hidden states contain at least one padding token
-        first unpad the input, then computes the attention scores and pad the final attention scores.
-
-        Args:
-            query_states (`torch.Tensor`):
-                Input query states to be passed to Flash Attention API
-            key_states (`torch.Tensor`):
-                Input key states to be passed to Flash Attention API
-            value_states (`torch.Tensor`):
-                Input value states to be passed to Flash Attention API
-            attention_mask (`torch.Tensor`):
-                The padding mask - corresponds to a tensor of size `(batch_size, seq_len)` where 0 stands for the
-                position of padding tokens and 1 for the position of non-padding tokens.
-            dropout (`float`):
-                Attention dropout
-            softmax_scale (`float`, *optional*):
-                The scaling of QK^T before applying softmax. Default to 1 / sqrt(head_dim)
-        """
-        if not self._flash_attn_uses_top_left_mask:
-            causal = self.is_causal
-        else:
-            # TODO: Remove the `query_length != 1` check once Flash Attention for RoCm is bumped to 2.1. For details, please see the comment in LlamaFlashAttention2 __init__.
-            causal = self.is_causal and query_length != 1
-
-        # Contains at least one padding token in the sequence
-        if attention_mask is not None:
-            batch_size = query_states.shape[0]
-            query_states, key_states, value_states, indices_q, cu_seq_lens, max_seq_lens = self._upad_input(
-                query_states, key_states, value_states, attention_mask, query_length
-            )
-
-            cu_seqlens_q, cu_seqlens_k = cu_seq_lens
-            max_seqlen_in_batch_q, max_seqlen_in_batch_k = max_seq_lens
-
-            attn_output_unpad = flash_attn_varlen_func(
-                query_states,
-                key_states,
-                value_states,
-                cu_seqlens_q=cu_seqlens_q,
-                cu_seqlens_k=cu_seqlens_k,
-                max_seqlen_q=max_seqlen_in_batch_q,
-                max_seqlen_k=max_seqlen_in_batch_k,
-                dropout_p=dropout,
-                softmax_scale=softmax_scale,
-                causal=causal,
-            )
-
-            attn_output = pad_input(attn_output_unpad, indices_q, batch_size, query_length)
-        else:
-            attn_output = flash_attn_func(
-                query_states, key_states, value_states, dropout, softmax_scale=softmax_scale, causal=causal
-            )
-
-        return attn_output
-
-    def _upad_input(self, query_layer, key_layer, value_layer, attention_mask, query_length):
-        indices_k, cu_seqlens_k, max_seqlen_in_batch_k = _get_unpad_data(attention_mask)
-        batch_size, kv_seq_len, num_key_value_heads, head_dim = key_layer.shape
-
-        key_layer = index_first_axis(
-            key_layer.reshape(batch_size * kv_seq_len, num_key_value_heads, head_dim), indices_k
-        )
-        value_layer = index_first_axis(
-            value_layer.reshape(batch_size * kv_seq_len, num_key_value_heads, head_dim), indices_k
-        )
-        if query_length == kv_seq_len:
-            query_layer = index_first_axis(
-                query_layer.reshape(batch_size * kv_seq_len, self.num_heads, head_dim), indices_k
-            )
-            cu_seqlens_q = cu_seqlens_k
-            max_seqlen_in_batch_q = max_seqlen_in_batch_k
-            indices_q = indices_k
-        elif query_length == 1:
-            max_seqlen_in_batch_q = 1
-            cu_seqlens_q = torch.arange(
-                batch_size + 1, dtype=torch.int32, device=query_layer.device
-            )  # There is a memcpy here, that is very bad.
-            indices_q = cu_seqlens_q[:-1]
-            query_layer = query_layer.squeeze(1)
-        else:
-            # The -q_len: slice assumes left padding.
-            attention_mask = attention_mask[:, -query_length:]
-            query_layer, indices_q, cu_seqlens_q, max_seqlen_in_batch_q = unpad_input(query_layer, attention_mask)
-
-        return (
-            query_layer,
-            key_layer,
-            value_layer,
-            indices_q,
-            (cu_seqlens_q, cu_seqlens_k),
-            (max_seqlen_in_batch_q, max_seqlen_in_batch_k),
-        ) 
     
 class LlamaDecoderLayer(nn.Module):
     def __init__(self, config: LlamaConfig, layer_idx: int):
@@ -911,10 +624,6 @@ class LlamaDecoderLayer(nn.Module):
         self.self_attn = (
             LlamaAttention(config=config, layer_idx=layer_idx)
         ) 
-        # elif config._attn_implementation == "sdpa": 
-        #     self.self_attn = (
-        #         LlamaSdpaAttention(config = config, layer_idx = layer_idx) 
-        #     ) 
 
         self.mlp = LlamaMLP(config)
         self.input_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
@@ -1016,7 +725,6 @@ class LlamaModel(LlamaPreTrainedModel):
         
         causal_mask = self._update_causal_mask(attention_mask, inputs_embeds, cache_position, past_key_values, output_attentions = False) # for flash_attention_2, this line should be one or two if statements 
 
-        # print("number of layers {}".format(len(self.layers))) 
         for decoder_layer in self.layers:
             layer_outputs = decoder_layer(
                 hidden_states,
@@ -1066,9 +774,6 @@ class LlamaModel(LlamaPreTrainedModel):
         target_length = past_key_values.get_max_length()
 
         if attention_mask is not None and attention_mask.dim() == 4:
-            # in this case we assume that the mask comes already in inverted form and requires no inversion or slicing
-            # if attention_mask.max() != 0: 
-                # raise ValueError("Custom 4D attention mask should be passed in inverted form with max==0`") 
             causal_mask = attention_mask
         else:
             causal_mask = torch.full(
@@ -1086,27 +791,6 @@ class LlamaModel(LlamaPreTrainedModel):
                 causal_mask[:, :, :, :mask_length] = causal_mask[:, :, :, :mask_length].masked_fill(
                     padding_mask, min_dtype
                 )
-        '''
-        if (
-            self.config._attn_implementation == "sdpa"
-            and attention_mask is not None
-            and attention_mask.device.type == "cuda"
-            and not output_attentions
-        ):
-            # Attend to all tokens in fully masked rows in the causal_mask, for example the relevant first rows when
-            # using left padding. This is required by F.scaled_dot_product_attention memory-efficient attention path.
-            # Details: https://github.com/pytorch/pytorch/issues/110213
-            is_tracing = (
-                torch.jit.is_tracing()
-                or isinstance(input_tensor, torch.fx.Proxy)
-                or (hasattr(torch, "_dynamo") and torch._dynamo.is_compiling())
-            ) 
-            
-            # if not is_tracing and attention_mask is not None and torch.any(attention_mask != 1): 
-            causal_mask = causal_mask.mul(~torch.all(causal_mask == causal_mask.min(), dim=-1)[..., None]).to(
-                dtype
-            ) 
-        ''' 
 
         return causal_mask
 
@@ -1153,8 +837,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         logits = self.lm_head(hidden_states)
         logits = logits.float()
 
-
-        # return logits, past_key_values 
         return logits 
 
     def reset_states(self): 
@@ -1168,7 +850,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
     def prepare_inputs_for_generation(
         self, input_ids, past_key_values=None, attention_mask=None, inputs_embeds=None, **kwargs 
     ): 
-        # print("attention mask pass in shape {}".format(attention_mask.shape)) 
         # this following part is for controlling the length of the input_ids 
         past_length = 0 
         cache_length = past_key_values.get_seq_length() 
@@ -1186,27 +867,17 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         
         position_ids = kwargs.get("position_ids", None) 
         print("attention_mask shape {} sum {}".format(attention_mask.shape, attention_mask.sum(1))) 
-        # print("position_ids is None {}".format(position_ids is None)) 
-        # print("past_length {}".format(past_length)) 
         if attention_mask is not None and position_ids is None and past_length == 0: # this part is included in the original prepare_inputs_for_generation 
-            # create position_ids on the fly for batch generation
-            # position_ids = attention_mask.long().cumsum(-1) - 1 
             position_ids = attention_mask[:, : input_ids.shape[1]].long().cumsum(-1) - 1 
-            # position_ids.masked_fill_(attention_mask == 0, 1)
             position_ids.masked_fill_(attention_mask[:, : input_ids.shape[1]] == 0, 1) 
-            # if past_key_values:
-                # position_ids = position_ids[:, -input_ids.shape[1] :] 
-            # print("position_ids shape {}".format(position_ids.shape)) 
         
         # preparing cache_position 
         cache_position = kwargs.get("cache_position", None) 
         if cache_position is None: 
             cache_position = torch.arange(past_length, past_length + position_ids.shape[1], device = input_ids.device, dtype = position_ids.dtype) 
-            # cache_position = position_ids.clone() 
         
         position_ids = None 
         
-        # print("attention_mask shape {}".format(attention_mask.shape)) 
         if past_length == 0: 
             model_inputs.update(
                 { 
@@ -1254,101 +925,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         streamer = None, 
         **model_kwargs,
     ) -> Union[GenerateNonBeamOutput, torch.LongTensor]: 
-        r"""
-        Generates sequences of token ids for models with a language modeling head using **greedy decoding** and can be
-        used for text-decoder, text-to-text, speech-to-text, and vision-to-text models.
-
-        <Tip warning={true}>
-
-        In most cases, you do not need to call [`~generation.GenerationMixin.greedy_search`] directly. Use generate()
-        instead. For an overview of generation strategies and code examples, check the [following
-        guide](../generation_strategies).
-
-        </Tip>
-
-
-        Parameters:
-            input_ids (`torch.LongTensor` of shape `(batch_size, sequence_length)`):
-                The sequence used as a prompt for the generation.
-            logits_processor (`LogitsProcessorList`, *optional*):
-                An instance of [`LogitsProcessorList`]. List of instances of class derived from [`LogitsProcessor`]
-                used to modify the prediction scores of the language modeling head applied at each generation step.
-            stopping_criteria (`StoppingCriteriaList`, *optional*):
-                An instance of [`StoppingCriteriaList`]. List of instances of class derived from [`StoppingCriteria`]
-                used to tell if the generation loop should stop.
-
-            max_length (`int`, *optional*, defaults to 20):
-                **DEPRECATED**. Use `logits_processor` or `stopping_criteria` directly to cap the number of generated
-                tokens. The maximum length of the sequence to be generated.
-            pad_token_id (`int`, *optional*):
-                The id of the *padding* token.
-            eos_token_id (`Union[int, List[int]]`, *optional*):
-                The id of the *end-of-sequence* token. Optionally, use a list to set multiple *end-of-sequence* tokens.
-            output_attentions (`bool`, *optional*, defaults to `False`):
-                Whether or not to return the attentions tensors of all attention layers. See `attentions` under
-                returned tensors for more details.
-            output_hidden_states (`bool`, *optional*, defaults to `False`):
-                Whether or not to return the hidden states of all layers. See `hidden_states` under returned tensors
-                for more details.
-            output_scores (`bool`, *optional*, defaults to `False`):
-                Whether or not to return the prediction scores. See `scores` under returned tensors for more details.
-            output_logits (`bool`, *optional*, defaults to `False`):
-                Whether or not to return the raw prediction logit scores. See `logits` under returned tensors
-                for more details.
-            return_dict_in_generate (`bool`, *optional*, defaults to `False`):
-                Whether or not to return a [`~utils.ModelOutput`] instead of a plain tuple.
-            synced_gpus (`bool`, *optional*, defaults to `False`):
-                Whether to continue running the while loop until max_length (needed for ZeRO stage 3)
-            streamer (`BaseStreamer`, *optional*):
-                Streamer object that will be used to stream the generated sequences. Generated tokens are passed
-                through `streamer.put(token_ids)` and the streamer is responsible for any further processing.
-            model_kwargs:
-                Additional model specific keyword arguments will be forwarded to the `forward` function of the model.
-                If model is an encoder-decoder model the kwargs should include `encoder_outputs`.
-
-        Return:
-            [`~generation.GenerateDecoderOnlyOutput`], [`~generation.GenerateEncoderDecoderOutput`] or
-            `torch.LongTensor`: A `torch.LongTensor` containing the generated tokens (default behaviour) or a
-            [`~generation.GenerateDecoderOnlyOutput`] if `model.config.is_encoder_decoder=False` and
-            `return_dict_in_generate=True` or a [`~generation.GenerateEncoderDecoderOutput`] if
-            `model.config.is_encoder_decoder=True`.
-
-        Examples:
-
-        ```python
-        >>> from transformers import (
-        ...     AutoTokenizer,
-        ...     AutoModelForCausalLM,
-        ...     LogitsProcessorList,
-        ...     MinLengthLogitsProcessor,
-        ...     StoppingCriteriaList,
-        ...     MaxLengthCriteria,
-        ... )
-
-        >>> tokenizer = AutoTokenizer.from_pretrained("openai-community/gpt2")
-        >>> model = AutoModelForCausalLM.from_pretrained("openai-community/gpt2")
-
-        >>> # set pad_token_id to eos_token_id because GPT2 does not have a PAD token
-        >>> model.generation_config.pad_token_id = model.generation_config.eos_token_id
-
-        >>> input_prompt = "It might be possible to"
-        >>> input_ids = tokenizer(input_prompt, return_tensors="pt").input_ids
-
-        >>> # instantiate logits processors
-        >>> logits_processor = LogitsProcessorList(
-        ...     [
-        ...         MinLengthLogitsProcessor(10, eos_token_id=model.generation_config.eos_token_id),
-        ...     ]
-        ... )
-        >>> stopping_criteria = StoppingCriteriaList([MaxLengthCriteria(max_length=20)])
-
-        >>> outputs = model.greedy_search(
-        ...     input_ids, logits_processor=logits_processor, stopping_criteria=stopping_criteria
-        ... )
-
-        >>> tokenizer.batch_decode(outputs, skip_special_tokens=True)
-        ["It might be possible to get a better understanding of the nature of the problem, but it's not"]
-        ```"""
+        
         initial_len = input_ids.shape[1] 
 
         max_seq_len = 900 
@@ -1366,11 +943,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             eos_token_id = [eos_token_id]
         eos_token_id_tensor = torch.tensor(eos_token_id).to(input_ids.device) if eos_token_id is not None else None
 
-        # init attention / hidden states / scores tuples 
-        # if model is an encoder-decoder, retrieve encoder attention weights and hidden states 
-        # keep track of which sequences are already finished
-
-
         this_peer_finished = False  # used by synced_gpus only
         initial_len = input_ids.shape[1] # prefill length 
         last_check = initial_len
@@ -1382,14 +954,12 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         
         # shared variables for three cases 
         past_key_values = StaticCacheSDPA(config = self.config, max_batch_size = 1, max_cache_len = max_seq_len, device = input_ids.device, dtype = torch.bfloat16) 
-        # past_key_values = StaticCache2(config = self.config, max_batch_size = 1, max_cache_len = max_seq_len, device = input_ids.device, dtype = torch.bfloat16) 
         attention_mask = model_kwargs["attention_mask"] 
         position_ids = attention_mask[:, : input_ids.shape[1]].long().cumsum(-1) - 1 
         position_ids.masked_fill_(attention_mask[:, : input_ids.shape[1]] == 0, 1) 
         cache_position = torch.arange(0, position_ids.shape[1], device = input_ids.device, dtype = position_ids.dtype) 
         
         attention_mask_static = torch.zeros((model_kwargs["attention_mask"].shape[0], max_seq_len)).to(input_ids.device).to(model_kwargs["attention_mask"].dtype) 
-        # attention_mask_static = torch.zeros((model_kwargs["attention_mask"].shape[0], 1024)).to(input_ids.device).to(model_kwargs["attention_mask"].dtype) 
         attention_mask_static[:, : model_kwargs["attention_mask"].shape[1]] = model_kwargs["attention_mask"] 
         attention_mask = attention_mask_static # attentionmask is shared 
         cumulativeprob = torch.zeros((input_ids.shape[0], self.config.treewidth)).to(input_ids.device).to(torch.float32) 
@@ -1463,7 +1033,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 use_cache = True, 
                 past_key_values = past_key_values, 
                 cache_position = executingcachepositionsparse, 
-                # inputs_embeds = input_embeds, 
             ) 
             print(self.tokenizer.decode(outputs[:, -1, :].argmax(-1)[0])) 
         print("warming up") 
@@ -1481,7 +1050,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 use_cache = True, 
                 past_key_values = past_key_values, 
                 cache_position = executingcachepositionsparse, 
-                # inputs_embeds = input_embeds, 
             ) 
         torch.cuda.synchronize() 
         endtime = time() 
@@ -1501,7 +1069,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 input_ids = executinginputidssparsegfou, 
                 attention_mask = attentionmaskgrowing, 
                 position_ids = executingpositionidssparsee, 
-                # position_ids = executingpositionidssparsee, 
                 use_cache = True, 
                 past_key_values = past_key_values, 
                 cache_position = executingcachepositionsparsegfou, 
@@ -1515,7 +1082,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 input_ids = executinginputidssparsegfou, 
                 attention_mask = attentionmaskgrowing, 
                 position_ids = executingpositionidssparsee, 
-                # position_ids = executingpositionidssparsee, 
                 use_cache = True, 
                 past_key_values = past_key_values, 
                 cache_position = executingcachepositionsparsegfou, 
@@ -1563,14 +1129,10 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         attentionmaskfullgrowing.fill_(0) 
         attentionmaskfullgrowing[:, :, :, length_inputids - 1 : ] = min_dtype # resetting the attention mask 
         attentionmaskfullgrowing[:, :, 0, : length_inputids] = 0 
-        # attentionmaskfullgrowing[:, :, attentionmaskidx : attentionmaskidx + self.config.treewidth, length_inputids - 1 : length_inputids - 1 + self.config.treewidth] = initialmaskblo 
         attentionmaskidx += 1 
-        # presenttext = [self.tokenizer.decode(next_tokens) for _ in range(self.config.treewidth)] 
-        # print(presenttext) 
         
         print("full time taken for a single forward pass {}".format((endtime - starttime)/10)) 
         
-        # print(self.tokenizer.decode(input_ids[0]), flush = True, end = " ") 
         starttime = time() 
         checking = True 
         
@@ -1586,16 +1148,10 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                         use_cache = True, 
                         past_key_values = past_key_values, 
                         cache_position = executingcachepositionsparse, 
-                        # inputs_embeds = input_embeds, 
                     ) 
                     
                     next_token_probs = torch.log_softmax(outputs[:, -1, :]/0.6, dim = -1) # (batch_size, vocab_size) 
                     topk, topkidx = torch.topk(next_token_probs, self.config.treewidth, dim = -1) # (batch_size, treewidth) 
-                    # first doesn't need filtering 
-                    # print(colored(self.tokenizer.decode(topkidx[0]), "cyan"), flush = True) 
-                    # for i in range(self.config.treewidth): 
-                    #     presenttext[i] += self.tokenizer.decode(topkidx[0, i]) 
-                    # print(presenttext) 
                     
                     staticinputids[:, length_inputids : length_inputids + self.config.treewidth] = topkidx 
                     length_inputids += self.config.treewidth 
@@ -1622,48 +1178,31 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                         input_ids = executinginputidssparsegfou, 
                         attention_mask = attentionmaskgrowing, 
                         position_ids = executingpositionidssparsee, 
-                        # position_ids = executingpositionidssparsee, 
                         use_cache = True, 
                         past_key_values = past_key_values, 
                         cache_position = executingcachepositionsparsegfou, 
                     ) 
-                    # next_token_logits = outputsgfou # (batch_size, treewidth, vocab_size) 
                     next_token_probs = torch.log_softmax(outputsgfou/0.6, dim = -1) # (batch_size, treewidth, vocab_size) 
                     topk, topkidx = torch.topk(next_token_probs, self.config.treewidth, dim = -1) # (batch_size, treewidth, treewidth) 
                     topknextids = topkidx.view(-1, self.config.treewidth * self.config.treewidth) 
-                    # print(colored(self.tokenizer.decode(topknextids[0]), "green"), flush = True) 
                                 
                     # filter 
                     topk = topk + cumulativeprob.unsqueeze(-1) # (batch_size, treewidth, treewidth) 
                     topk = topk.view(-1, self.config.treewidth * self.config.treewidth) # (batch_size, treewidth * treewidth) 
                     topk, topkparentidx = torch.topk(topk, k = self.config.treewidth, dim = -1) # (batch_size, treewidth) 
-                    # print(colored("selected parentidx are {}".format(topkparentidx[0]), "yellow"), flush = True) 
-                    # print("topkparentidx {}".format(topkparentidx), flush = True) 
                     # using the parent index to get the next tokens 
                     topkparentidx = topkparentidx.squeeze(0) 
                     next_tokensidx = topknextids[:, topkparentidx] # (batch_size, treewidth) 
-                    # print(colored(self.tokenizer.decode(next_tokensidx[0]), "yellow"), flush = True) 
-                    # newpretext = [] 
-                    # for i in range(self.config.treewidth): 
-                    #     oldindex = topkparentidx[i] // self.config.treewidth 
-                    #     newpretext.append(presenttext[oldindex] + self.tokenizer.decode(next_tokensidx[0, i])) 
-                    # presenttext = newpretext 
-                    # print(presenttext) 
                     staticinputids[:, length_inputids : length_inputids + self.config.treewidth] = next_tokensidx 
                     executinginputidssparsegfou.copy_(next_tokensidx) 
                     length_inputids += self.config.treewidth 
                     topkparentidx = (topkparentidx // self.config.treewidth).squeeze(0) # (batch_size, treewidth) 
-                    # print("topkparentidx {}".format(topkparentidx), flush = True) 
                     cumulativeprob.copy_(topk) 
                     
                     # prepare attention mask, cache position for next iteration 
                     # TODO: prepare for the attention mask in four-dimensional 
-                    # newattentionmask = attentionmaskgrowing[:, :, topkparentidx, :] 
                     newattentionmask = attentionmaskgrowing.index_select(2, topkparentidx) 
                     attentionmaskgrowing.copy_(newattentionmask) 
-                    # print("input_ids shape {}".format(input_ids.shape), flush = True) 
-                    # print("length_inputids {}".format(length_inputids), flush = True) 
-                    # print("length generation {}".format(length_inputids - last_check), flush = True) 
                     attentionmaskgrowing[:, :, :, length_inputids - self.config.treewidth : length_inputids] = initialmaskblo 
                     executingpositionidssparsee.fill_(position_marker) 
                     executingcachepositionsparsegfou.copy_(cachepositionaddergfou + length_inputids - self.config.treewidth) 
@@ -1680,7 +1219,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 checking = True 
                 executingcachepositionfull.copy_(cache_positionadder + last_check) 
                 self.set_inference_mode("full") 
-                # print(colored(self.tokenizer.decode(executinginputidsfull[0]), "magenta"), flush = True) 
                 outputsfull = gfull(
                     input_ids = executinginputidsfull, 
                     attention_mask = attentionmaskfullgrowing, 
@@ -1691,33 +1229,20 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 ) 
                 
                 sparse_predicted_tokens = staticinputids[:, length_inputids - checkl + 1 : length_inputids] 
-                # print("pre {}".format(self.tokenizer.decode(sparse_predicted_tokens[0])), flush = True) 
-                # full_predicted_likelihood = torch.softmax(outputsfull[:, 1 : -self.config.treewidth, :]/0.6, dim = -1) 
                 full_predicted_likelihood = torch.softmax(outputsfull/0.6, dim = -1) 
-                # print(context_selecter, flush = True) 
                 full_predicted_likelihood2 = full_predicted_likelihood[:, context_selecter, :] 
                 
-                # print("full_predicted_likelihood shape {}".format(full_predicted_likelihood.shape), flush = True) 
-                # print("sparse_predicted_tokens shape {}".format(sparse_predicted_tokens.shape), flush = True) 
                 selected_likelihood = torch.gather(full_predicted_likelihood2, dim = -1, index = sparse_predicted_tokens.unsqueeze(-1)).squeeze(-1).squeeze(0) 
-                # print("selected_likelihood {}".format(selected_likelihood), flush = True) 
                 
                 thresholdgreatr = selected_likelihood >= self.config.thr 
-                # print("thresholdgreatr {}".format(thresholdgreatr), flush = True) 
                 
                 attentionmasksegment = attentionmaskfullgrowing[:, :, attentionmaskidx - self.config.treewidth : attentionmaskidx, last_check + 1 : last_check + checkl].squeeze(0).squeeze(0) 
                 attentionmasksegment = attentionmasksegment == 0 
                 
                 gatherthresh = torch.masked_select(thresholdgreatr, attentionmasksegment).view(-1, kernel_size - 1) 
                 lengthaccepts = torch.cumprod(gatherthresh, dim = -1, dtype = torch.long).sum(dim = -1).view(-1) 
-                # print("lengthaccepts {}".format(lengthaccepts), flush = True) 
                 idx = torch.argmax(lengthaccepts, dim = -1) 
-                # print("index selected {}".format(idx), flush = True) 
                 lengthaccepts = lengthaccepts[idx].item() 
-                
-                # idxgather = torch.masked_select(executinginputidsfull[0][1 : ], attentionmasksegment).view(-1, kernel_size - 1) 
-                # text = self.tokenizer.batch_decode(idxgather) 
-                # print("text {}".format(text), flush = True) 
                 
                 self.num_steps += 1 
                 self.total_steps += lengthaccepts + 1 
@@ -1733,8 +1258,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 attentionmaskfullgrowing[:, :, :, length_inputids - checkl + lengthaccepts + 1 : length_inputids] = min_dtype 
                 
                 # kv cache 
-                # print("attentionmasksegment shape {}".format(attentionmasksegment.shape), flush = True) 
-                # print("attentionmasksegment {}".format(attentionmasksegment), flush = True) 
                 attentionmasksegment = torch.nonzero(attentionmasksegment[idx], as_tuple = True)[0] 
                 if lengthaccepts == kernel_size - 1: 
                     outputsfullback = outputsfull[:, -self.config.treewidth + idx, :] 
@@ -1742,19 +1265,13 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                     outputsfullback = outputsfull[:, attentionmasksegment[lengthaccepts], :] 
                     
                 attentionmasksegment += length_inputids - checkl + 1 
-                # print("attentionmasksegment shape {}".format(attentionmasksegment.shape), flush = True) 
-                # print("attentionmasksegment {}".format(attentionmasksegment), flush = True) 
                 past_key_values.backgather(attentionmasksegment, length_inputids - checkl + 1, length_inputids - checkl + kernel_size) 
                 
                 # input ids reset 
-                # length_inputids -= step 
                 staticinputids[:, length_inputids - checkl + 1 : length_inputids - checkl + kernel_size] = staticinputids[:, attentionmasksegment] 
                 length_inputids = length_inputids - checkl + lengthaccepts + 1 # length_inputids = length_inputids - checkl + kernel_size - step 
                 last_check = length_inputids 
                 next_token = torch.argmax(outputsfullback, dim = -1) 
-                # print(colored(self.tokenizer.decode(next_token), "blue"), flush = True) 
-                # presenttext = [self.tokenizer.decode(next_token) for _ in range(self.config.treewidth)] 
-                # print(presenttext) 
                 staticinputids[:, length_inputids] = next_token 
                 length_inputids += 1 
                 executinginputidssparse.copy_(next_token.unsqueeze(0)) 
@@ -1770,7 +1287,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 selecteridx = 0 
                 position_marker = length_inputids 
                 # TODO: adding more statements here 
-                # print("text accepted in the round {}".format(self.tokenizer.decode(staticinputids[0, initial_len : length_inputids])), flush = True) 
                 cumulativeprob.fill_(0) 
                 if checking and length_inputids - initial_len > 48: 
                     break 
@@ -1782,20 +1298,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         print("inputidsselected {}".format(self.tokenizer.decode(staticinputids[0, initial_len : length_inputids])), flush = True) 
         self.generationtime += (endtime - starttime) 
         
-        '''
-        # if eos_token was found in one sentence, set sentence to finished
-        if eos_token_id_tensor is not None: 
-            print("next token shape {} eos_token_id_tensor shape {}".format(next_tokens.shape, eos_token_id_tensor.shape), flush = True) 
-            if torch.eq(next_tokens.expand(eos_token_id_tensor.shape[0]), eos_token_id_tensor).any(): 
-                this_peer_finished = True 
-        ''' 
-        
         # Calculate elapsed time
-        '''
-        print("average time: {}".format(np.average(timecollection)), flush = True) 
-        print(timecollection, flush = True) 
-        ''' 
-        
         torch._dynamo.reset() 
         torch.compiler.reset() 
         torch.cuda.empty_cache() 
@@ -1811,7 +1314,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             self.reset_states() 
         input_ids = staticinputids[:, : length_inputids] 
         
-        # self.totalgenerationlength += input_ids.shape[1] - initial_len 
         self.totalgenerationlength += (length_inputids - initial_len - 1) # first token is not measured in range 
         print("per token generation time {}".format(self.generationtime/self.totalgenerationlength)) 
 
